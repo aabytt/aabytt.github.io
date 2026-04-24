@@ -18,11 +18,7 @@
             --border: #333333;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Crimson Text', serif;
@@ -45,14 +41,6 @@
             font-weight: 300;
             letter-spacing: 0.08em;
             color: var(--accent);
-            margin-bottom: 0.4rem;
-        }
-
-        .header p {
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
         }
 
         .stats {
@@ -93,10 +81,7 @@
             font-size: 1rem;
             border-radius: 4px;
         }
-        .search-box input:focus {
-            border-color: var(--accent);
-            outline: none;
-        }
+        .search-box input:focus { border-color: var(--accent); outline: none; }
 
         .language-selector {
             padding: 0.75rem 1.2rem;
@@ -105,7 +90,6 @@
             color: var(--text-primary);
             font-family: 'Cormorant Garamond', serif;
             font-size: 1.05rem;
-            font-weight: 400;
             border-radius: 4px;
             min-width: 240px;
         }
@@ -165,9 +149,7 @@
             background: #000;
             transition: transform 0.5s ease;
         }
-        .video-card:hover .video-preview {
-            transform: scale(1.04);
-        }
+        .video-card:hover .video-preview { transform: scale(1.04); }
 
         .video-info { padding: 1.7rem; }
         .video-title {
@@ -201,66 +183,81 @@
             border: 1px solid rgba(255, 255, 255, 0.25);
         }
 
-        /* ==================== MODAL FIX ==================== */
+        /* ====================== MODAL ====================== */
         .modal {
             display: none;
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.98);
             z-index: 1000;
-            padding: 2rem;
+            padding: 1rem;
             overflow-y: auto;
         }
-
-        .modal.active {
-            display: block;
-        }
+        .modal.active { display: block; }
 
         .modal-content {
-            max-width: 1400px;
+            max-width: 1480px;
             width: 100%;
             margin: 0 auto;
             background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 2.4rem;
-            max-height: 95vh;
+            border-radius: 10px;
+            padding: 1.5rem;
+            max-height: 98vh;
             overflow-y: auto;
-            display: flex;
-            flex-direction: column;
         }
 
         .modal-video-container {
-            position: sticky;
-            top: 0;
-            background: var(--bg-secondary);
-            padding-bottom: 1.5rem;
-            z-index: 10;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 2rem;
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .modal-video {
+            width: 100%;
+            max-height: 88vh;           /* Much bigger video now */
+            height: auto;
+            display: block;
         }
 
         .modal-header {
             display: flex;
             justify-content: space-between;
-            align-items: start;
-            margin-bottom: 1.5rem;
+            align-items: flex-start;
+            margin-bottom: 0.8rem;
+            padding: 0 0.5rem;
         }
 
-        .modal-video {
-            width: 100%;
-            max-height: 55vh;
-            background: #000;
-            border-radius: 6px;
+        .poi-overlay {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 16px 34px;
+            border-radius: 12px;
+            font-size: 1.25rem;
+            font-weight: 500;
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            max-width: 90%;
+            z-index: 10;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            border: 1px solid var(--accent-dim);
         }
+        .poi-overlay.show { opacity: 1; }
 
         .quality-links {
-            margin-top: 1rem;
+            margin-top: 1.2rem;
             display: flex;
             gap: 0.8rem;
             flex-wrap: wrap;
+            justify-content: center;
         }
-
         .quality-link {
             padding: 0.7rem 1.4rem;
             background: var(--bg-primary);
@@ -274,37 +271,6 @@
         .quality-link:hover {
             background: var(--accent);
             color: var(--bg-primary);
-            border-color: var(--accent);
-        }
-
-        .poi-section {
-            margin-top: 1rem;
-        }
-
-        .poi-section h3 {
-            color: var(--accent);
-            margin-bottom: 1.3rem;
-        }
-
-        .poi-list {
-            max-height: 45vh;
-            overflow-y: auto;
-            padding-right: 0.5rem;
-        }
-
-        .poi-list::-webkit-scrollbar {
-            width: 6px;
-        }
-        .poi-list::-webkit-scrollbar-thumb {
-            background: var(--accent-dim);
-            border-radius: 3px;
-        }
-
-        .poi-item {
-            background: var(--bg-primary);
-            padding: 1.2rem;
-            border-left: 3px solid var(--accent-dim);
-            margin-bottom: 0.8rem;
         }
 
         .no-results {
@@ -315,30 +281,19 @@
         }
 
         @media (max-width: 768px) {
-            .header h1 { font-size: 2.9rem; }
-            .gallery { grid-template-columns: 1fr; gap: 2rem; padding: 1.5rem; }
-            .controls { flex-direction: column; align-items: stretch; }
-            .modal { padding: 1rem; }
-            .modal-content { padding: 1.5rem; }
-            .modal-video { max-height: 45vh; }
+            .modal { padding: 0.5rem; }
+            .modal-content { padding: 1rem; }
+            .modal-video { max-height: 75vh; }
+            .poi-overlay { bottom: 8%; font-size: 1.05rem; padding: 12px 24px; }
         }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="stats">
-            <div class="stat">
-                <span class="stat-number" id="totalVideos">—</span>
-                <span class="stat-label">Videos</span>
-            </div>
-            <div class="stat">
-                <span class="stat-number" id="totalPOI">—</span>
-                <span class="stat-label">Points of Interest</span>
-            </div>
-            <div class="stat">
-                <span class="stat-number" id="totalLocations">—</span>
-                <span class="stat-label">Locations</span>
-            </div>
+            <div class="stat"><span class="stat-number" id="totalVideos">—</span><span class="stat-label">Videos</span></div>
+            <div class="stat"><span class="stat-number" id="totalPOI">—</span><span class="stat-label">Points of Interest</span></div>
+            <div class="stat"><span class="stat-number" id="totalLocations">—</span><span class="stat-label">Locations</span></div>
         </div>
     </div>
 
@@ -346,7 +301,6 @@
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="Search locations, descriptions...">
         </div>
-
         <select id="languageSelect" class="language-selector"></select>
 
         <div class="filter-group">
@@ -364,7 +318,7 @@
 
     <div class="gallery" id="gallery"></div>
 
-    <!-- ==================== MODAL ==================== -->
+    <!-- Modal - Video + Overlay Only -->
     <div class="modal" id="videoModal">
         <div class="modal-content">
             <div class="modal-video-container">
@@ -373,70 +327,35 @@
                         <h2 class="video-title" id="modalTitle"></h2>
                         <p class="video-description" id="modalDescription"></p>
                     </div>
-                    <button class="close-modal" id="closeModal" style="background: none; border: none; color: var(--text-secondary); font-size: 2.4rem; cursor: pointer; line-height: 1;">×</button>
+                    <button id="closeModal" style="background:none;border:none;color:var(--text-secondary);font-size:2.8rem;cursor:pointer;line-height:1;">×</button>
                 </div>
-                
                 <video class="modal-video" id="modalVideo" controls></video>
-                
-                <div class="quality-links" id="modalQualityLinks"></div>
+                <div class="poi-overlay" id="poiOverlay"></div>
             </div>
 
-            <div class="poi-section" id="poiSection" style="display: none;">
-                <h3>Points of Interest</h3>
-                <div class="poi-list" id="poiList"></div>
-            </div>
+            <div class="quality-links" id="modalQualityLinks"></div>
         </div>
     </div>
 
     <script>
-        let videosData = [];
-        let stringsData = {};
-        let currentLanguage = 'en-US';
-        let currentFilter = 'all';
-        let searchQuery = '';
+        let videosData = [], stringsData = {}, currentLanguage = 'en-US', currentFilter = 'all', searchQuery = '';
+        let currentPOIs = {}, poiTimeout = null;
 
         const languageOptions = [
-            {value: 'ar-AE', content: 'العربية'},
-            {value: 'be-BY', content: 'Беларуская'},
-            {value: 'ca-ES', content: 'Català'},
-            {value: 'cs-CZ', content: 'Čeština'},
-            {value: 'da-DK', content: 'Dansk'},
-            {value: 'de-DE', content: 'Deutsch'},
-            {value: 'el-GR', content: 'ελληνικά'},
-            {value: 'en-AU', content: 'English (Australia)'},
-            {value: 'en-GB', content: 'English (United Kingdom)'},
-            {value: 'en-US', content: 'English (United States)'},
-            {value: 'es-419', content: 'Español (Latinoamérica)'},
-            {value: 'es-ES', content: 'Español'},
-            {value: 'fi-FI', content: 'Suomi'},
-            {value: 'fr-CA', content: 'Français (Canada)'},
-            {value: 'fr-FR', content: 'Français'},
-            {value: 'he-IL', content: 'עברית'},
-            {value: 'hi-IN', content: 'हिन्दी'},
-            {value: 'hr-HR', content: 'Hrvatski'},
-            {value: 'hu-HU', content: 'Magyar'},
-            {value: 'id-ID', content: 'Bahasa Indonesia'},
-            {value: 'it-IT', content: 'Italiano'},
-            {value: 'ja-JP', content: '日本語'},
-            {value: 'ko-KR', content: '한국어'},
-            {value: 'ms-MY', content: 'Bahasa Melayu'},
-            {value: 'nb-NO', content: 'Norsk'},
-            {value: 'nl-NL', content: 'Nederlands'},
-            {value: 'pl-PL', content: 'Polski'},
-            {value: 'pt-BR', content: 'Português (Brasil)'},
-            {value: 'pt-PT', content: 'Português (Portugal)'},
-            {value: 'ro-RO', content: 'Română'},
-            {value: 'ru-RU', content: 'Русский'},
-            {value: 'sk-SK', content: 'Slovenčina'},
-            {value: 'sl-SI', content: 'Slovenščina'},
-            {value: 'sv-SE', content: 'Svenska'},
-            {value: 'th-TH', content: 'ไทย'},
-            {value: 'tr-TR', content: 'Türkçe'},
-            {value: 'uk-UA', content: 'Українська'},
-            {value: 'vi-VN', content: 'Tiếng Việt'},
-            {value: 'zh-CN', content: '中文 (中国大陆)'},
-            {value: 'zh-HK', content: '中文（香港）'},
-            {value: 'zh-TW', content: '中文 (台灣)'}
+            {value: 'ar-AE', content: 'العربية'}, {value: 'be-BY', content: 'Беларуская'}, {value: 'ca-ES', content: 'Català'},
+            {value: 'cs-CZ', content: 'Čeština'}, {value: 'da-DK', content: 'Dansk'}, {value: 'de-DE', content: 'Deutsch'},
+            {value: 'el-GR', content: 'ελληνικά'}, {value: 'en-AU', content: 'English (Australia)'}, {value: 'en-GB', content: 'English (United Kingdom)'},
+            {value: 'en-US', content: 'English (United States)'}, {value: 'es-419', content: 'Español (Latinoamérica)'}, {value: 'es-ES', content: 'Español'},
+            {value: 'fi-FI', content: 'Suomi'}, {value: 'fr-CA', content: 'Français (Canada)'}, {value: 'fr-FR', content: 'Français'},
+            {value: 'he-IL', content: 'עברית'}, {value: 'hi-IN', content: 'हिन्दी'}, {value: 'hr-HR', content: 'Hrvatski'},
+            {value: 'hu-HU', content: 'Magyar'}, {value: 'id-ID', content: 'Bahasa Indonesia'}, {value: 'it-IT', content: 'Italiano'},
+            {value: 'ja-JP', content: '日本語'}, {value: 'ko-KR', content: '한국어'}, {value: 'ms-MY', content: 'Bahasa Melayu'},
+            {value: 'nb-NO', content: 'Norsk'}, {value: 'nl-NL', content: 'Nederlands'}, {value: 'pl-PL', content: 'Polski'},
+            {value: 'pt-BR', content: 'Português (Brasil)'}, {value: 'pt-PT', content: 'Português (Portugal)'}, {value: 'ro-RO', content: 'Română'},
+            {value: 'ru-RU', content: 'Русский'}, {value: 'sk-SK', content: 'Slovenčina'}, {value: 'sl-SI', content: 'Slovenščina'},
+            {value: 'sv-SE', content: 'Svenska'}, {value: 'th-TH', content: 'ไทย'}, {value: 'tr-TR', content: 'Türkçe'},
+            {value: 'uk-UA', content: 'Українська'}, {value: 'vi-VN', content: 'Tiếng Việt'}, {value: 'zh-CN', content: '中文 (中国大陆)'},
+            {value: 'zh-HK', content: '中文（香港）'}, {value: 'zh-TW', content: '中文 (台灣)'}
         ];
 
         async function loadData(language = 'en-US') {
@@ -446,18 +365,13 @@
                     fetch('https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/videos.json'),
                     fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/${language}.json`)
                 ]);
-
                 videosData = (await videosResponse.json()).assets;
-                const stringsJson = await stringsResponse.json();
-                stringsData = stringsJson.strings || stringsJson;
+                stringsData = (await stringsResponse.json()).strings || await stringsResponse.json();
 
                 populateLanguageSelector();
                 updateStats();
                 renderGallery();
-            } catch (error) {
-                console.error('Error loading data:', error);
-                document.getElementById('gallery').innerHTML = `<div class="no-results">Error loading data for ${language}</div>`;
-            }
+            } catch (e) { console.error(e); }
         }
 
         function populateLanguageSelector() {
@@ -475,20 +389,13 @@
         function updateStats() {
             const totalPOI = videosData.reduce((sum, v) => sum + Object.keys(v.pointsOfInterest || {}).length, 0);
             const locations = new Set(videosData.map(v => stringsData[v.localizedNameKey] || v.localizedNameKey));
-
             document.getElementById('totalVideos').textContent = videosData.length;
             document.getElementById('totalPOI').textContent = totalPOI;
             document.getElementById('totalLocations').textContent = locations.size;
         }
 
-        function getVideoName(video) {
-            return stringsData[video.localizedNameKey] || video.localizedNameKey || 'Unknown Location';
-        }
-
-        function getPOIDescription(poiKey) {
-            return stringsData[poiKey] || poiKey;
-        }
-
+        function getVideoName(video) { return stringsData[video.localizedNameKey] || video.localizedNameKey || 'Unknown Location'; }
+        function getPOIDescription(poiKey) { return stringsData[poiKey] || poiKey; }
         function formatTime(seconds) {
             const m = Math.floor(seconds / 60);
             const s = seconds % 60;
@@ -507,7 +414,6 @@
         function renderGallery() {
             const gallery = document.getElementById('gallery');
             const filtered = filterVideos();
-
             if (filtered.length === 0) {
                 gallery.innerHTML = '<div class="no-results">No videos found matching your criteria.</div>';
                 return;
@@ -533,13 +439,12 @@
                         <div class="video-info">
                             <h3 class="video-title">${name}</h3>
                             <p class="video-description">${description}</p>
-                            <div style="margin: 12px 0 8px;">
-                                <span class="meta-tag" style="background: var(--bg-primary); color: var(--accent); padding: 4px 10px; border-radius: 3px; font-size: 0.85rem;">${poiCount} POI</span>
+                            <div style="margin:12px 0 8px;">
+                                <span class="meta-tag" style="background:var(--bg-primary);color:var(--accent);padding:4px 10px;border-radius:3px;font-size:0.85rem;">${poiCount} POI</span>
                             </div>
                             <div class="quality-badges">${badgesHTML}</div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
 
             document.querySelectorAll('.video-card').forEach(card => {
@@ -552,17 +457,15 @@
 
         function openModal(video) {
             const modal = document.getElementById('videoModal');
-            const name = getVideoName(video);
-            const firstPOI = video.pointsOfInterest?.['0'];
-            const description = firstPOI ? getPOIDescription(firstPOI) : 'Aerial view';
-
-            document.getElementById('modalTitle').textContent = name;
-            document.getElementById('modalDescription').textContent = description;
-
             const videoEl = document.getElementById('modalVideo');
-            videoEl.src = video['url-1080-SDR'] || video['url-1080-H264'] || video['url-4K-SDR'] || video['url-4K-SDR-240FPS'];
 
-            const qualityLinks = document.getElementById('modalQualityLinks');
+            document.getElementById('modalTitle').textContent = getVideoName(video);
+            document.getElementById('modalDescription').textContent = getPOIDescription(video.pointsOfInterest?.['0']) || 'Aerial view';
+
+            videoEl.src = video['url-1080-SDR'] || video['url-1080-H264'] || video['url-4K-SDR'] || video['url-4K-SDR-240FPS'];
+            currentPOIs = video.pointsOfInterest || {};
+
+            // Quality links
             const qualities = [
                 { label: '4K HDR', key: 'url-4K-HDR' },
                 { label: '4K SDR', key: 'url-4K-SDR' },
@@ -571,31 +474,27 @@
                 { label: '1080p SDR', key: 'url-1080-SDR' },
                 { label: '1080p H.264', key: 'url-1080-H264' }
             ];
-
-            qualityLinks.innerHTML = qualities
+            document.getElementById('modalQualityLinks').innerHTML = qualities
                 .filter(q => video[q.key])
-                .map(q => `<a href="${video[q.key]}" class="quality-link" download>${q.label}</a>`)
-                .join('');
-
-            const poiSection = document.getElementById('poiSection');
-            const poiList = document.getElementById('poiList');
-
-            if (video.pointsOfInterest && Object.keys(video.pointsOfInterest).length > 0) {
-                poiList.innerHTML = Object.entries(video.pointsOfInterest)
-                    .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-                    .map(([time, key]) => `
-                        <div class="poi-item">
-                            <div class="poi-time" style="color: var(--accent); font-weight: 600; margin-bottom: 0.4rem;">${formatTime(parseInt(time))}</div>
-                            <div style="color: var(--text-secondary);">${getPOIDescription(key)}</div>
-                        </div>
-                    `).join('');
-                poiSection.style.display = 'block';
-            } else {
-                poiSection.style.display = 'none';
-            }
+                .map(q => `<a href="${video[q.key]}" class="quality-link" download>${q.label}</a>`).join('');
 
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
+            setupPOIOverlays(videoEl);
+        }
+
+        function setupPOIOverlays(videoEl) {
+            const overlay = document.getElementById('poiOverlay');
+            videoEl.ontimeupdate = () => {
+                const time = Math.floor(videoEl.currentTime);
+                const poiKey = currentPOIs[time];
+                if (poiKey) {
+                    overlay.textContent = getPOIDescription(poiKey);
+                    overlay.classList.add('show');
+                    clearTimeout(poiTimeout);
+                    poiTimeout = setTimeout(() => overlay.classList.remove('show'), 6500);
+                }
+            };
         }
 
         function closeModal() {
@@ -603,16 +502,14 @@
             const videoEl = document.getElementById('modalVideo');
             videoEl.pause();
             videoEl.src = '';
+            document.getElementById('poiOverlay').classList.remove('show');
+            clearTimeout(poiTimeout);
             modal.classList.remove('active');
             document.body.style.overflow = 'auto';
         }
 
-        // Event listeners
-        document.getElementById('searchInput').addEventListener('input', e => {
-            searchQuery = e.target.value;
-            renderGallery();
-        });
-
+        // Event Listeners
+        document.getElementById('searchInput').addEventListener('input', e => { searchQuery = e.target.value; renderGallery(); });
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -621,28 +518,20 @@
                 renderGallery();
             });
         });
-
         document.getElementById('gridView').addEventListener('click', () => {
             document.getElementById('gallery').classList.remove('list-view');
             document.getElementById('gridView').classList.add('active');
             document.getElementById('listView').classList.remove('active');
         });
-
         document.getElementById('listView').addEventListener('click', () => {
             document.getElementById('gallery').classList.add('list-view');
             document.getElementById('listView').classList.add('active');
             document.getElementById('gridView').classList.remove('active');
         });
-
         document.getElementById('languageSelect').addEventListener('change', e => loadData(e.target.value));
-
         document.getElementById('closeModal').addEventListener('click', closeModal);
-        document.getElementById('videoModal').addEventListener('click', e => {
-            if (e.target.id === 'videoModal') closeModal();
-        });
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') closeModal();
-        });
+        document.getElementById('videoModal').addEventListener('click', e => { if (e.target.id === 'videoModal') closeModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
         // Initialize
         loadData('en-US');
