@@ -103,7 +103,7 @@
             background: var(--bg-secondary);
             border: 1px solid var(--border);
             color: var(--text-primary);
-            font-family: 'Cormorant Garamond', serif;   /* ← Fixed: elegant font */
+            font-family: 'Cormorant Garamond', serif;
             font-size: 1.05rem;
             font-weight: 400;
             border-radius: 4px;
@@ -201,6 +201,7 @@
             border: 1px solid rgba(255, 255, 255, 0.25);
         }
 
+        /* ==================== MODAL FIX ==================== */
         .modal {
             display: none;
             position: fixed;
@@ -210,27 +211,56 @@
             padding: 2rem;
             overflow-y: auto;
         }
+
         .modal.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: block;
         }
 
         .modal-content {
             max-width: 1400px;
             width: 100%;
+            margin: 0 auto;
             background: var(--bg-secondary);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 2.4rem;
+            max-height: 95vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-video-container {
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            padding-bottom: 1.5rem;
+            z-index: 10;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-video {
+            width: 100%;
+            max-height: 55vh;
+            background: #000;
+            border-radius: 6px;
         }
 
         .quality-links {
-            margin-top: 2rem;
+            margin-top: 1rem;
             display: flex;
             gap: 0.8rem;
             flex-wrap: wrap;
         }
+
         .quality-link {
             padding: 0.7rem 1.4rem;
             background: var(--bg-primary);
@@ -248,13 +278,33 @@
         }
 
         .poi-section {
-            margin-top: 2.8rem;
-            padding-top: 2rem;
-            border-top: 1px solid var(--border);
+            margin-top: 1rem;
         }
+
         .poi-section h3 {
             color: var(--accent);
             margin-bottom: 1.3rem;
+        }
+
+        .poi-list {
+            max-height: 45vh;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .poi-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .poi-list::-webkit-scrollbar-thumb {
+            background: var(--accent-dim);
+            border-radius: 3px;
+        }
+
+        .poi-item {
+            background: var(--bg-primary);
+            padding: 1.2rem;
+            border-left: 3px solid var(--accent-dim);
+            margin-bottom: 0.8rem;
         }
 
         .no-results {
@@ -268,6 +318,9 @@
             .header h1 { font-size: 2.9rem; }
             .gallery { grid-template-columns: 1fr; gap: 2rem; padding: 1.5rem; }
             .controls { flex-direction: column; align-items: stretch; }
+            .modal { padding: 1rem; }
+            .modal-content { padding: 1.5rem; }
+            .modal-video { max-height: 45vh; }
         }
     </style>
 </head>
@@ -311,17 +364,23 @@
 
     <div class="gallery" id="gallery"></div>
 
+    <!-- ==================== MODAL ==================== -->
     <div class="modal" id="videoModal">
         <div class="modal-content">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 2rem;">
-                <div>
-                    <h2 class="video-title" id="modalTitle"></h2>
-                    <p class="video-description" id="modalDescription"></p>
+            <div class="modal-video-container">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="video-title" id="modalTitle"></h2>
+                        <p class="video-description" id="modalDescription"></p>
+                    </div>
+                    <button class="close-modal" id="closeModal" style="background: none; border: none; color: var(--text-secondary); font-size: 2.4rem; cursor: pointer; line-height: 1;">×</button>
                 </div>
-                <button class="close-modal" id="closeModal" style="background: none; border: none; color: var(--text-secondary); font-size: 2.4rem; cursor: pointer; line-height: 1;">×</button>
+                
+                <video class="modal-video" id="modalVideo" controls></video>
+                
+                <div class="quality-links" id="modalQualityLinks"></div>
             </div>
-            <video class="modal-video" id="modalVideo" controls style="width: 100%; max-height: 70vh; background: #000; border-radius: 6px;"></video>
-            <div class="quality-links" id="modalQualityLinks"></div>
+
             <div class="poi-section" id="poiSection" style="display: none;">
                 <h3>Points of Interest</h3>
                 <div class="poi-list" id="poiList"></div>
@@ -519,12 +578,13 @@
                 .join('');
 
             const poiSection = document.getElementById('poiSection');
+            const poiList = document.getElementById('poiList');
+
             if (video.pointsOfInterest && Object.keys(video.pointsOfInterest).length > 0) {
-                const poiList = document.getElementById('poiList');
                 poiList.innerHTML = Object.entries(video.pointsOfInterest)
                     .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
                     .map(([time, key]) => `
-                        <div class="poi-item" style="background: var(--bg-primary); padding: 1.2rem; border-left: 3px solid var(--accent-dim); margin-bottom: 0.8rem;">
+                        <div class="poi-item">
                             <div class="poi-time" style="color: var(--accent); font-weight: 600; margin-bottom: 0.4rem;">${formatTime(parseInt(time))}</div>
                             <div style="color: var(--text-secondary);">${getPOIDescription(key)}</div>
                         </div>
