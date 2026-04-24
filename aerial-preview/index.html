@@ -57,6 +57,7 @@
             color: var(--accent);
         }
 
+        /* ==================== CONTROLS ==================== */
         .controls {
             position: sticky;
             top: 0;
@@ -116,6 +117,57 @@
             border-color: var(--accent);
         }
 
+        /* ==================== MOBILE OPTIMIZATIONS ==================== */
+        @media (max-width: 768px) {
+            .header {
+                padding: 2.5rem 1rem 1.5rem;
+            }
+            .header h1 {
+                font-size: 2.9rem;
+            }
+            .stats {
+                gap: 2rem;
+                margin-top: 1.8rem;
+            }
+            .stat-number {
+                font-size: 2.2rem;
+            }
+
+            .controls {
+                padding: 0.9rem 1rem;
+                gap: 0.7rem;
+            }
+            .search-box input {
+                padding: 0.7rem 1rem;
+                font-size: 0.96rem;
+            }
+            .language-selector {
+                padding: 0.65rem 1rem;
+                font-size: 0.95rem;
+                min-width: 170px;
+            }
+            .filter-btn, .quality-btn {
+                padding: 0.55rem 1rem;
+                font-size: 0.78rem;
+            }
+
+            .gallery {
+                padding: 1.6rem 1rem;
+                gap: 1.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .search-box, .language-selector {
+                min-width: auto;
+            }
+        }
+
+        /* Gallery & Cards (unchanged) */
         .gallery {
             padding: 2.5rem;
             display: grid;
@@ -159,7 +211,6 @@
         }
         .video-card:hover .video-preview { transform: scale(1.04); }
 
-        /* Full coverage dark gradient overlay */
         .video-overlay {
             position: absolute;
             inset: 0;
@@ -178,7 +229,6 @@
             color: white;
         }
 
-        /* POI Badge - Top Right */
         .poi-badge {
             position: absolute;
             top: 12px;
@@ -215,7 +265,7 @@
 
         .video-meta {
             display: flex;
-            gap: 6px;
+            gap: 8px;
             flex-wrap: wrap;
         }
 
@@ -225,7 +275,6 @@
             flex-wrap: wrap;
         }
 
-        /* Very small & semi-transparent quality badges */
         .quality-badge {
             padding: 1px 6px;
             font-size: 0.58rem;
@@ -291,9 +340,7 @@
             pointer-events: none;
         }
 
-        .modal-video-overlay * {
-            pointer-events: auto;
-        }
+        .modal-video-overlay * { pointer-events: auto; }
 
         .modal-title-overlay {
             font-family: 'Cormorant Garamond', serif;
@@ -313,9 +360,7 @@
             line-height: 1;
             margin-top: -8px;
         }
-        .modal-close:hover {
-            color: white;
-        }
+        .modal-close:hover { color: white; }
 
         .poi-overlay {
             position: absolute;
@@ -375,8 +420,6 @@
             .poi-overlay { bottom: 8%; font-size: 1.05rem; padding: 12px 24px; }
             .modal-title-overlay { font-size: 1.55rem; }
             .modal-video-overlay { padding: 15px 18px; }
-            .poi-badge { top: 10px; right: 10px; font-size: 0.78rem; padding: 4px 9px; }
-            .quality-badge { font-size: 0.55rem; padding: 0px 5px; }
         }
     </style>
 </head>
@@ -418,11 +461,9 @@
                     <h2 class="modal-title-overlay" id="modalTitle"></h2>
                     <button class="modal-close" id="closeModal">×</button>
                 </div>
-
                 <video class="modal-video" id="modalVideo" controls></video>
                 <div class="poi-overlay" id="poiOverlay"></div>
             </div>
-
             <div class="quality-links" id="modalQualityLinks"></div>
         </div>
     </div>
@@ -431,10 +472,22 @@
         let videosData = [], stringsData = {}, currentLanguage = 'en-US', currentFilter = 'all', searchQuery = '';
         let currentPOIs = {}, poiTimeout = null;
 
-        const languageOptions = [ /* ... same as before ... */ ];
-
-        // (All JavaScript remains exactly the same as previous version)
-        // ... [full script from previous response] ...
+        const languageOptions = [
+            {value: 'ar-AE', content: 'العربية'}, {value: 'be-BY', content: 'Беларуская'}, {value: 'ca-ES', content: 'Català'},
+            {value: 'cs-CZ', content: 'Čeština'}, {value: 'da-DK', content: 'Dansk'}, {value: 'de-DE', content: 'Deutsch'},
+            {value: 'el-GR', content: 'ελληνικά'}, {value: 'en-AU', content: 'English (Australia)'}, {value: 'en-GB', content: 'English (United Kingdom)'},
+            {value: 'en-US', content: 'English (United States)'}, {value: 'es-419', content: 'Español (Latinoamérica)'}, {value: 'es-ES', content: 'Español'},
+            {value: 'fi-FI', content: 'Suomi'}, {value: 'fr-CA', content: 'Français (Canada)'}, {value: 'fr-FR', content: 'Français'},
+            {value: 'he-IL', content: 'עברית'}, {value: 'hi-IN', content: 'हिन्दी'}, {value: 'hr-HR', content: 'Hrvatski'},
+            {value: 'hu-HU', content: 'Magyar'}, {value: 'id-ID', content: 'Bahasa Indonesia'}, {value: 'it-IT', content: 'Italiano'},
+            {value: 'ja-JP', content: '日本語'}, {value: 'ko-KR', content: '한국어'}, {value: 'ms-MY', content: 'Bahasa Melayu'},
+            {value: 'nb-NO', content: 'Norsk'}, {value: 'nl-NL', content: 'Nederlands'}, {value: 'pl-PL', content: 'Polski'},
+            {value: 'pt-BR', content: 'Português (Brasil)'}, {value: 'pt-PT', content: 'Português (Portugal)'}, {value: 'ro-RO', content: 'Română'},
+            {value: 'ru-RU', content: 'Русский'}, {value: 'sk-SK', content: 'Slovenčina'}, {value: 'sl-SI', content: 'Slovenščina'},
+            {value: 'sv-SE', content: 'Svenska'}, {value: 'th-TH', content: 'ไทย'}, {value: 'tr-TR', content: 'Türkçe'},
+            {value: 'uk-UA', content: 'Українська'}, {value: 'vi-VN', content: 'Tiếng Việt'}, {value: 'zh-CN', content: '中文 (中国大陆)'},
+            {value: 'zh-HK', content: '中文（香港）'}, {value: 'zh-TW', content: '中文 (台灣)'}
+        ];
 
         async function loadData(language = 'en-US') {
             try {
@@ -606,6 +659,7 @@
         document.getElementById('videoModal').addEventListener('click', e => { if (e.target.id === 'videoModal') closeModal(); });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+        // Initialize
         loadData('en-US');
     </script>
 </body>
