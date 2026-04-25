@@ -294,7 +294,7 @@
             try {
                 currentLanguage = language;
                 const [videosRes, stringsRes] = await Promise.all([
-                    fetch('https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/videos.json'),
+                    fetch('videos.json'),
                     fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/${language}.json`)
                 ]);
                 videosData = (await videosRes.json()).assets || [];
