@@ -29,9 +29,7 @@
 
         .controls {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
+            top: 0; left: 0; right: 0;
             background: rgba(0, 0, 0, 0.98);
             backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border);
@@ -43,11 +41,9 @@
             align-items: center;
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
         .controls.hidden { transform: translateY(-100%); }
 
         .search-box { flex: 1; min-width: 220px; position: relative; }
-        
         .search-box input {
             width: 100%;
             padding: 0.9rem 1rem 0.9rem 2.6rem;
@@ -57,7 +53,6 @@
             font-size: 1rem;
             border-radius: 6px;
         }
-
         .search-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
 
         .language-selector {
@@ -110,74 +105,47 @@
             transition: all 0.4s ease;
         }
 
-        .video-preview-container {
-            position: relative;
-            aspect-ratio: 16/9;
-            overflow: hidden;
-        }
-
+        .video-preview-container { position: relative; aspect-ratio: 16/9; overflow: hidden; }
         .video-preview { width: 100%; height: 100%; object-fit: cover; }
 
         .favorite-btn {
-            position: absolute;
-            top: 12px; left: 12px;
-            background: rgba(0,0,0,0.8);
-            border: none;
-            color: white;
-            width: 44px; height: 44px;
-            border-radius: 50%;
-            cursor: pointer;
-            z-index: 12;
-            font-size: 1.45rem;
+            position: absolute; top: 12px; left: 12px;
+            background: rgba(0,0,0,0.8); border: none; color: white;
+            width: 44px; height: 44px; border-radius: 50%;
+            cursor: pointer; z-index: 12; font-size: 1.45rem;
         }
 
         .poi-badge, .quality-badge {
             position: absolute;
-            background: rgba(0,0,0,0.85);
-            color: white;
-            padding: 5px 11px;
-            border-radius: 20px;
-            font-size: 0.82rem;
-            font-weight: 600;
-            z-index: 11;
+            background: rgba(0,0,0,0.85); color: white;
+            padding: 5px 11px; border-radius: 20px;
+            font-size: 0.82rem; font-weight: 600; z-index: 11;
         }
-
         .poi-badge { top: 12px; right: 12px; }
         .quality-badge { bottom: 12px; right: 12px; font-size: 0.7rem; border: 1px solid rgba(255,255,255,0.1); }
-
         .quality-badge.4k-hdr { background: linear-gradient(90deg, #c8102e, #e31c2d); }
 
         .bottom-overlay {
-            position: absolute;
-            inset: 0;
+            position: absolute; inset: 0;
             background: linear-gradient(to bottom, transparent 55%, rgba(0,0,0,0.9));
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding: 1.2rem;
-            color: white;
-            z-index: 8;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            padding: 1.2rem; color: white; z-index: 8;
         }
 
         /* Modal */
         .modal {
             position: fixed; inset: 0;
             background: rgba(0,0,0,0.95);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            opacity: 0; visibility: hidden;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2000; opacity: 0; visibility: hidden;
             transition: all 0.4s ease;
         }
         .modal.active { opacity: 1; visibility: visible; }
 
         .modal-content {
-            width: 92%;
-            max-width: 1400px;
+            width: 92%; max-width: 1400px;
             background: var(--bg-secondary);
-            border-radius: 12px;
-            overflow: hidden;
+            border-radius: 12px; overflow: hidden;
             border: 1px solid var(--border);
         }
 
@@ -185,43 +153,52 @@
         .modal-video { width: 100%; max-height: 85vh; }
 
         .modal-close {
-            position: absolute;
-            top: 18px; right: 18px;
-            font-size: 2.4rem;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            width: 52px; height: 52px;
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-            z-index: 30;
+            position: absolute; top: 20px; right: 20px;
+            font-size: 2.4rem; background: rgba(0,0,0,0.8);
+            color: white; width: 52px; height: 52px;
+            border-radius: 50%; border: none; cursor: pointer; z-index: 40;
         }
 
         .video-name-overlay {
             position: absolute;
-            top: 25px; left: 25px;
-            background: rgba(0,0,0,0.7);
+            top: 30px; left: 30px;
+            background: rgba(0,0,0,0.75);
             color: white;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 8px;
             font-family: 'Cormorant Garamond', serif;
-            font-size: 1.7rem;
-            z-index: 15;
+            font-size: 1.75rem;
+            z-index: 25;
+            backdrop-filter: blur(8px);
         }
 
         .poi-overlay {
             position: absolute;
-            bottom: 40px; left: 25px; right: 25px;
-            background: rgba(0,0,0,0.7);
+            bottom: 50px; left: 30px; right: 30px;
+            background: rgba(0,0,0,0.75);
             color: white;
-            font-size: 1.3rem;
-            padding: 14px 22px;
+            font-size: 1.35rem;
+            padding: 16px 24px;
             border-radius: 8px;
             opacity: 0;
             transition: opacity 0.4s ease;
-            z-index: 15;
+            z-index: 25;
+            backdrop-filter: blur(8px);
         }
         .poi-overlay.show { opacity: 1; }
+
+        .modal-quality-badge {
+            position: absolute;
+            bottom: 30px; right: 30px;
+            background: rgba(0,0,0,0.85);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            z-index: 25;
+        }
+        .modal-quality-badge.4k-hdr { background: linear-gradient(90deg, #c8102e, #e31c2d); }
 
         .modal-footer {
             padding: 1.2rem 1.5rem;
@@ -243,8 +220,9 @@
         }
 
         @media (max-width: 768px) {
-            .gallery { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-            .modal .quality-badge { bottom: 25px; right: 25px; font-size: 0.85rem; padding: 6px 12px; }
+            .video-name-overlay { top: 20px; left: 20px; font-size: 1.45rem; padding: 10px 18px; }
+            .poi-overlay { bottom: 30px; left: 20px; right: 20px; font-size: 1.15rem; padding: 12px 18px; }
+            .modal-quality-badge { bottom: 25px; right: 25px; }
         }
     </style>
 </head>
@@ -266,11 +244,11 @@
             </button>
         </div>
 
+
     </div>
 
     <div class="gallery" id="gallery"></div>
 
-    <!-- Modal -->
     <div class="modal" id="videoModal">
         <div class="modal-content">
             <div class="modal-video-container">
@@ -279,7 +257,7 @@
                 
                 <div class="video-name-overlay" id="videoNameOverlay"></div>
                 <div class="poi-overlay" id="poiOverlay"></div>
-                <div class="quality-badge" id="modalQualityBadge"></div>
+                <div class="modal-quality-badge" id="modalQualityBadge"></div>
             </div>
             
             <div class="modal-footer">
@@ -428,10 +406,13 @@
             const q = getQualityBadge(video);
 
             document.getElementById('videoNameOverlay').textContent = name;
-            document.getElementById('modalQualityBadge').innerHTML = `<span class="${q.cls}">${q.text}</span>`;
+            const badgeEl = document.getElementById('modalQualityBadge');
+            badgeEl.innerHTML = `<span class="${q.cls}">${q.text}</span>`;
 
             const videoEl = document.getElementById('modalVideo');
-            videoEl.src = video['url-4K-HDR'] || video['url-4K-SDR'] || video['url-1080-SDR'] || '';
+            // Prefer 1080 SDR, then HDR
+            videoEl.src = video['url-1080-SDR'] || video['url-1080-HDR'] || video['url-1080-H264'] || 
+                          video['url-4K-SDR'] || video['url-4K-HDR'] || '';
 
             currentPOIs = video.pointsOfInterest || {};
 
@@ -471,7 +452,7 @@
                     overlay.textContent = stringsData[key] || key;
                     overlay.classList.add('show');
                     clearTimeout(poiTimeout);
-                    poiTimeout = setTimeout(() => overlay.classList.remove('show'), 6000);
+                    poiTimeout = setTimeout(() => overlay.classList.remove('show'), 6500);
                 }
             };
         }
@@ -486,7 +467,6 @@
             currentVideoId = null;
         }
 
-        // Scroll hide controls
         let lastScroll = 0;
         window.addEventListener('scroll', () => {
             const ctrl = document.getElementById('controls');
