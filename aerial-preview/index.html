@@ -1,493 +1,473 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aerial Collection</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Crimson+Text:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #000000;
-            --bg-secondary: #111111;
-            --bg-hover: #1a1a1a;
-            --text-primary: #f0f0f0;
-            --text-secondary: #bbbbbb;
-            --text-muted: #777777;
-            --accent: #ffffff;
-            --border: #333333;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aerial Collection</title>
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Crimson+Text:wght@400;600&display=swap" rel="stylesheet">
 
-        body {
-            font-family: 'Crimson Text', serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
+<style>
+:root {
+    --bg-primary:#000;
+    --bg-secondary:#111;
+    --text-primary:#f0f0f0;
+    --border:#333;
+}
 
-        .controls {
-            position: fixed; top: 0; left: 0; right: 0;
-            background: rgba(0, 0, 0, 0.98);
-            backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem;
-            z-index: 1000;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.8rem;
-            align-items: center;
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .controls.hidden { transform: translateY(-100%); }
+*{margin:0;padding:0;box-sizing:border-box;}
 
-        .search-box { flex: 1; min-width: 220px; position: relative; }
-        .search-box input {
-            width: 100%;
-            padding: 0.9rem 1rem 0.9rem 2.6rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            font-size: 1rem;
-            border-radius: 6px;
-        }
-        .search-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+body{
+    font-family:'Crimson Text',serif;
+    background:var(--bg-primary);
+    color:var(--text-primary);
+}
 
-        .language-selector {
-            padding: 0.85rem 1rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            font-size: 1rem;
-            border-radius: 6px;
-        }
+/* Controls */
+.controls{
+    position:fixed;
+    top:0;left:0;right:0;
+    background:rgba(0,0,0,.98);
+    backdrop-filter:blur(16px);
+    border-bottom:1px solid var(--border);
+    padding:1rem;
+    z-index:100;
+    display:flex;
+    gap:.8rem;
+    flex-wrap:wrap;
+}
 
-        .filter-btn, .quality-btn {
-            padding: 0.75rem 1.1rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 0.9rem;
-            border-radius: 6px;
-        }
+.search-box{flex:1;position:relative;}
+.search-box input{
+    width:100%;
+    padding:.8rem 1rem .8rem 2.4rem;
+    background:#111;
+    border:1px solid var(--border);
+    color:#fff;
+}
+.search-icon{
+    position:absolute;
+    left:.8rem;
+    top:50%;
+    transform:translateY(-50%);
+    color:#777;
+}
 
-        .filter-btn:hover, .quality-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
-        .filter-btn.active, .quality-btn.active { background: var(--accent); color: var(--bg-primary); }
+.language-selector{
+    padding:.6rem;
+    background:#111;
+    border:1px solid var(--border);
+    color:#fff;
+}
 
-        .counter-badge {
-            background: #f5576c;
-            color: white;
-            border-radius: 50%;
-            padding: 2px 7px;
-            font-size: 0.75rem;
-            margin-left: 6px;
-            font-weight: 700;
-        }
+.filter-btn{
+    padding:.6rem 1rem;
+    background:#111;
+    border:1px solid var(--border);
+    color:#bbb;
+    cursor:pointer;
+}
+.filter-btn.active{background:#fff;color:#000;}
 
-        .gallery {
-            padding: 1.2rem 1rem 4rem;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.8rem;
-            margin-top: 75px;
-        }
+.counter-badge{
+    background:#f5576c;
+    border-radius:50%;
+    padding:2px 6px;
+    margin-left:4px;
+}
 
-        .video-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            overflow: hidden;
-            cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-        }
+/* Gallery */
+.gallery{
+    margin-top:80px;
+    padding:1rem;
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+    gap:1.5rem;
+    position:relative;
+    z-index:0;
+}
 
-        .video-card:hover {
-            transform: scale(1.035) translateY(-6px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-            border-color: #555555;
-        }
+.video-card{
+    background:#111;
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    cursor:pointer;
+    transition:.3s;
+}
+.video-card:hover{transform:scale(1.02);}
 
-        .video-preview-container { position: relative; aspect-ratio: 16/9; overflow: hidden; }
-        .video-preview { 
-            width: 100%; height: 100%; object-fit: cover;
-            transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .video-card:hover .video-preview { transform: scale(1.08); }
+.video-preview-container{
+    position:relative;
+    aspect-ratio:16/9;
+}
 
-        .favorite-btn {
-            position: absolute; top: 12px; left: 12px;
-            background: rgba(0,0,0,0.8); border: none; color: white;
-            width: 44px; height: 44px; border-radius: 50%;
-            cursor: pointer; z-index: 12; font-size: 1.45rem;
-            transition: transform 0.3s ease;
-        }
-        .video-card:hover .favorite-btn { transform: scale(1.1); }
+.video-preview{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+}
 
-        .poi-badge, .quality-badge {
-            position: absolute;
-            background: rgba(0,0,0,0.85); color: white;
-            padding: 5px 11px; border-radius: 20px;
-            font-size: 0.82rem; font-weight: 600; z-index: 11;
-            transition: all 0.3s ease;
-        }
-        .poi-badge { top: 12px; right: 12px; }
-        .quality-badge { bottom: 12px; right: 12px; font-size: 0.7rem; border: 1px solid rgba(255,255,255,0.1); }
-        .quality-badge.4k-hdr { background: linear-gradient(90deg, #c8102e, #e31c2d); }
+/* 🔧 lowered stacking */
+.favorite-btn{
+    position:absolute;
+    top:10px;
+    left:10px;
+    z-index:1;
+    width:40px;height:40px;
+    border:none;
+    border-radius:50%;
+    background:rgba(0,0,0,.8);
+    color:#fff;
+    cursor:pointer;
+}
 
-        .video-card:hover .poi-badge,
-        .video-card:hover .quality-badge { transform: scale(1.05); }
+.poi-badge{
+    position:absolute;
+    top:10px;
+    right:10px;
+    z-index:1;
+    background:rgba(0,0,0,.8);
+    padding:4px 10px;
+    border-radius:20px;
+    font-size:.75rem;
+}
 
-        .bottom-overlay {
-            position: absolute; inset: 0;
-            background: linear-gradient(to bottom, transparent 55%, rgba(0,0,0,0.9));
-            display: flex; flex-direction: column; justify-content: flex-end;
-            padding: 1.2rem; color: white; z-index: 8;
-            transition: padding 0.4s ease;
-        }
-        .video-card:hover .bottom-overlay { padding-bottom: 1.4rem; }
+.bottom-overlay{
+    position:absolute;
+    inset:0;
+    background:linear-gradient(to bottom,transparent 60%,rgba(0,0,0,.9));
+    display:flex;
+    align-items:flex-end;
+    padding:1rem;
+}
 
-        /* Modal styles */
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: center; z-index: 2000; opacity: 0; visibility: hidden; transition: all 0.4s ease; }
-        .modal.active { opacity: 1; visibility: visible; }
-        .modal-content { width: 92%; max-width: 1400px; background: var(--bg-secondary); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
-        .modal-video-container { position: relative; background: #000; }
-        .modal-video { width: 100%; max-height: 85vh; }
-        .modal-close { position: absolute; top: 20px; right: 20px; font-size: 2.4rem; background: rgba(0,0,0,0.8); color: white; width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer; z-index: 40; }
-        .video-name-overlay { position: absolute; top: 30px; left: 30px; background: rgba(0,0,0,0.75); color: white; padding: 12px 24px; border-radius: 8px; font-family: 'Cormorant Garamond', serif; font-size: 1.75rem; z-index: 25; backdrop-filter: blur(8px); }
-        .poi-overlay { position: absolute; bottom: 50px; left: 30px; right: 30px; background: rgba(0,0,0,0.75); color: white; font-size: 1.35rem; padding: 16px 24px; border-radius: 8px; opacity: 0; transition: opacity 0.4s ease; z-index: 25; backdrop-filter: blur(8px); }
-        .poi-overlay.show { opacity: 1; }
-        .modal-quality-badge { position: absolute; bottom: 30px; right: 30px; background: rgba(0,0,0,0.85); color: white; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; z-index: 25; }
-        .modal-quality-badge.4k-hdr { background: linear-gradient(90deg, #c8102e, #e31c2d); }
+/* Modal */
+.modal{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.95);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    opacity:0;
+    visibility:hidden;
+    transition:.3s;
+    z-index:9999; /* 🔥 critical fix */
+}
+.modal.active{
+    opacity:1;
+    visibility:visible;
+}
 
-        .modal-footer {
-            padding: 1.2rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
+.modal-content{
+    width:95%;
+    max-width:1200px;
+    position:relative;
+    z-index:10000;
+}
 
-        .quality-link {
-            padding: 0.7rem 1.3rem;
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            text-decoration: none;
-            border-radius: 6px;
-            margin: 3px;
-        }
+.modal-video{
+    width:100%;
+    max-height:85vh;
+    background:#000;
+}
 
-        @media (max-width: 768px) {
-            .video-card:hover { transform: scale(1.02) translateY(-4px); }
-        }
-    </style>
+.video-name-overlay{
+    position:absolute;
+    top:20px;
+    left:20px;
+    z-index:10;
+    background:rgba(0,0,0,.7);
+    padding:10px;
+}
+
+.poi-overlay{
+    position:absolute;
+    bottom:40px;
+    left:20px;
+    right:20px;
+    z-index:10;
+    background:rgba(0,0,0,.7);
+    padding:12px;
+    opacity:0;
+    transition:.3s;
+}
+.poi-overlay.show{opacity:1;}
+
+.modal-close{
+    position:absolute;
+    top:15px;
+    right:15px;
+    z-index:20;
+    background:rgba(0,0,0,.8);
+    border:none;
+    color:#fff;
+    font-size:2rem;
+    width:45px;height:45px;
+    border-radius:50%;
+    cursor:pointer;
+}
+
+.modal-footer{
+    padding:1rem;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+}
+
+.quality-btn{
+    padding:6px 12px;
+    border-radius:20px;
+    border:1px solid #444;
+    background:#000;
+    color:#fff;
+    cursor:pointer;
+}
+.quality-btn.active{
+    background:#fff;
+    color:#000;
+}
+</style>
 </head>
+
 <body>
-    <div class="controls" id="controls">
-        <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" placeholder="Search locations...">
-        </div>
 
-        <select id="languageSelect" class="language-selector"></select>
-
-        <div style="display:flex; gap:0.6rem; align-items:center;">
-            <button class="filter-btn active" id="allFilter">All <span class="counter-badge" id="allCount">0</span></button>
-            <button class="filter-btn favorites-btn" id="favoritesFilter">❤️ Favorites <span class="counter-badge" id="favoritesCount" style="display:none;">0</span></button>
-        </div>
+<div class="controls">
+    <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input id="searchInput" placeholder="Search locations...">
     </div>
 
-    <div class="gallery" id="gallery"></div>
+    <select id="languageSelect" class="language-selector"></select>
 
-    <div class="modal" id="videoModal">
-        <div class="modal-content">
-            <div class="modal-video-container">
-                <button class="modal-close" id="closeModal">×</button>
-                <video id="modalVideo" class="modal-video" controls autoplay loop></video>
-                <div class="video-name-overlay" id="videoNameOverlay"></div>
-                <div class="poi-overlay" id="poiOverlay"></div>
-                <div class="modal-quality-badge" id="modalQualityBadge"></div>
-            </div>
-            <div class="modal-footer">
-                <div class="quality-links" id="modalQualityLinks" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
-                <button class="modal-control-btn" id="modalFavoriteBtn">❤️ Favorite</button>
-            </div>
+    <button class="filter-btn active" id="allFilter">
+        All <span id="allCount" class="counter-badge">0</span>
+    </button>
+
+    <button class="filter-btn" id="favoritesFilter">
+        ❤️ Favorites <span id="favoritesCount" class="counter-badge" style="display:none;"></span>
+    </button>
+</div>
+
+<div id="gallery" class="gallery"></div>
+
+<div id="videoModal" class="modal">
+    <div class="modal-content">
+        <video id="modalVideo" class="modal-video" controls autoplay muted loop playsinline></video>
+
+        <div id="videoNameOverlay" class="video-name-overlay"></div>
+        <div id="poiOverlay" class="poi-overlay"></div>
+
+        <button id="closeModal" class="modal-close">×</button>
+
+        <div class="modal-footer">
+            <div id="qualitySelector"></div>
+            <button id="modalFavoriteBtn">❤️ Favorite</button>
         </div>
     </div>
+</div>
 
-    <script>
-        let videosData = [], stringsData = {}, currentLanguage = 'en-US';
-        let searchQuery = '', qualityFilter = 'all', currentVideoFilter = 'all';
-        let favorites = JSON.parse(localStorage.getItem('aerial-favorites') || '[]');
-        let currentVideoId = null, currentPOIs = {}, poiTimeout;
+<script>
+let videosData=[],videoMap={},stringsData={};
+let favorites=JSON.parse(localStorage.getItem('aerial-favorites')||'[]');
 
-        const languageOptions = [
-            {value: 'ar-AE', content: 'العربية'}, {value: 'be-BY', content: 'Беларуская'}, {value: 'ca-ES', content: 'Català'},
-            {value: 'cs-CZ', content: 'Čeština'}, {value: 'da-DK', content: 'Dansk'}, {value: 'de-DE', content: 'Deutsch'},
-            {value: 'el-GR', content: 'ελληνικά'}, {value: 'en-AU', content: 'English (Australia)'}, {value: 'en-GB', content: 'English (United Kingdom)'},
-            {value: 'en-US', content: 'English (United States)'}, {value: 'es-419', content: 'Español (Latinoamérica)'}, {value: 'es-ES', content: 'Español'},
-            {value: 'fi-FI', content: 'Suomi'}, {value: 'fr-CA', content: 'Français (Canada)'}, {value: 'fr-FR', content: 'Français'},
-            {value: 'he-IL', content: 'עברית'}, {value: 'hi-IN', content: 'हिन्दी'}, {value: 'hr-HR', content: 'Hrvatski'},
-            {value: 'hu-HU', content: 'Magyar'}, {value: 'id-ID', content: 'Bahasa Indonesia'}, {value: 'it-IT', content: 'Italiano'},
-            {value: 'ja-JP', content: '日本語'}, {value: 'ko-KR', content: '한국어'}, {value: 'ms-MY', content: 'Bahasa Melayu'},
-            {value: 'nb-NO', content: 'Norsk'}, {value: 'nl-NL', content: 'Nederlands'}, {value: 'pl-PL', content: 'Polski'},
-            {value: 'pt-BR', content: 'Português (Brasil)'}, {value: 'pt-PT', content: 'Português (Portugal)'}, {value: 'ro-RO', content: 'Română'},
-            {value: 'ru-RU', content: 'Русский'}, {value: 'sk-SK', content: 'Slovenčina'}, {value: 'sl-SI', content: 'Slovenščina'},
-            {value: 'sv-SE', content: 'Svenska'}, {value: 'th-TH', content: 'ไทย'}, {value: 'tr-TR', content: 'Türkçe'},
-            {value: 'uk-UA', content: 'Українська'}, {value: 'vi-VN', content: 'Tiếng Việt'}, {value: 'zh-CN', content: '中文 (中国大陆)'},
-            {value: 'zh-HK', content: '中文（香港）'}, {value: 'zh-TW', content: '中文 (台灣)'}
-        ];
+let currentVideoId=null,currentPOIs={};
+let searchQuery='',filter='all';
+let poiTimeout;
 
-        function getBrowserLanguage() {
-            let lang = (navigator.language || navigator.userLanguage || 'en-US').toLowerCase();
-            console.log('🌐 Browser language detected:', lang);
+/* language */
+const langs=[
+    ['ar-AE','العربية'],['be-BY','Беларуская'],['ca-ES','Català'],
+    ['cs-CZ','Čeština'],['da-DK','Dansk'],['de-DE','Deutsch'],
+    ['el-GR','ελληνικά'],['en-AU','English (Australia)'],['en-GB','English (United Kingdom)'],
+    ['en-US','English (United States)'],['es-419','Español (Latinoamérica)'],['es-ES','Español'],
+    ['fi-FI','Suomi'],['fr-CA','Français (Canada)'],['fr-FR','Français'],
+    ['he-IL','עברית'],['hi-IN','हिन्दी'],['hr-HR','Hrvatski'],
+    ['hu-HU','Magyar'],['id-ID','Bahasa Indonesia'],['it-IT','Italiano'],
+    ['ja-JP','日本語'],['ko-KR','한국어'],['ms-MY','Bahasa Melayu'],
+    ['nb-NO','Norsk'],['nl-NL','Nederlands'],['pl-PL','Polski'],
+    ['pt-BR','Português (Brasil)'],['pt-PT','Português (Portugal)'],['ro-RO','Română'],
+    ['ru-RU','Русский'],['sk-SK','Slovenčina'],['sl-SI','Slovenščina'],
+    ['sv-SE','Svenska'],['th-TH','ไทย'],['tr-TR','Türkçe'],
+    ['uk-UA','Українська'],['vi-VN','Tiếng Việt'],['zh-CN','中文 (中国大陆)'],
+    ['zh-HK','中文（香港）'],['zh-TW','中文 (台灣)']
+];
 
-            // Exact match
-            let match = languageOptions.find(opt => opt.value.toLowerCase() === lang);
-            if (match) {
-                console.log('✅ Exact match found:', match.value);
-                return match.value;
-            }
+function initLang(){
+    const sel=document.getElementById('languageSelect');
+    langs.forEach(l=>{
+        const o=document.createElement('option');
+        o.value=l[0];
+        o.textContent=l[1];
+        sel.appendChild(o);
+    });
+    sel.value=localStorage.getItem('aerial-lang')||'en-US';
+}
 
-            // Base language match (en, fr, de, etc.)
-            const base = lang.split('-')[0];
-            match = languageOptions.find(opt => opt.value.toLowerCase().startsWith(base + '-'));
-            if (match) {
-                console.log('✅ Base language match found:', match.value);
-                return match.value;
-            }
+/* load */
+async function loadData(lang){
+    localStorage.setItem('aerial-lang',lang);
 
-            console.log('⚠️ No match, falling back to en-US');
-            return 'en-US';
-        }
+    const [v,s]=await Promise.all([
+        fetch('videos.json'),
+        fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/${lang}.json`)
+    ]);
 
-        async function loadData(language = 'en-US') {
-            try {
-                console.log(`📥 Loading language: ${language}`);
-                currentLanguage = language;
+    videosData=(await v.json()).assets||[];
+    stringsData=(await s.json()).strings||{};
 
-                const [videosRes, stringsRes] = await Promise.all([
-                    fetch('videos.json'),
-                    fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/${language}.json`)
-                ]);
+    videoMap={};
+    videosData.forEach(v=>videoMap[v.id]=v);
 
-                videosData = (await videosRes.json()).assets || [];
-                stringsData = (await stringsRes.json()).strings || {};
+    updateStats();
+    render();
+}
 
-                console.log(`✅ Loaded ${videosData.length} videos for ${language}`);
-                
-                populateLanguageSelector();
-                updateStats();
-                renderGallery();
-            } catch (e) {
-                console.error(`❌ Failed to load ${language}:`, e);
-                if (language !== 'en-US') {
-                    console.log('🔄 Falling back to English...');
-                    loadData('en-US');
-                }
-            }
-        }
+function name(v){return stringsData[v.localizedNameKey]||v.localizedNameKey;}
 
-        function populateLanguageSelector() {
-            const select = document.getElementById('languageSelect');
-            select.innerHTML = '';
-            languageOptions.forEach(lang => {
-                const opt = document.createElement('option');
-                opt.value = lang.value;
-                opt.textContent = lang.content;
-                if (lang.value === currentLanguage) opt.selected = true;
-                select.appendChild(opt);
-            });
-        }
+function render(){
+    const list=videosData.filter(v=>{
+        const n=name(v).toLowerCase();
+        return (!searchQuery||n.includes(searchQuery)) &&
+               (filter==='all'||favorites.includes(v.id));
+    });
 
-        function updateStats() {
-            document.getElementById('allCount').textContent = videosData.length;
-            updateFavoritesCount();
-        }
+    const g=document.getElementById('gallery');
 
-        function updateFavoritesCount() {
-            const count = favorites.length;
-            const el = document.getElementById('favoritesCount');
-            el.textContent = count;
-            el.style.display = count > 0 ? 'inline' : 'none';
-        }
+    g.innerHTML=list.map(v=>`
+    <div class="video-card" data-id="${v.id}">
+        <div class="video-preview-container">
+            <img src="${v.previewImage}" class="video-preview">
+            <button class="favorite-btn">${favorites.includes(v.id)?'❤️':'🤍'}</button>
+            <div class="poi-badge">${Object.keys(v.pointsOfInterest||{}).length} POI</div>
+            <div class="bottom-overlay"><h3>${name(v)}</h3></div>
+        </div>
+    </div>`).join('');
+}
 
-        function toggleFavorite(videoId, e) {
-            if (e) e.stopPropagation();
-            const idx = favorites.indexOf(videoId);
-            idx > -1 ? favorites.splice(idx, 1) : favorites.push(videoId);
-            localStorage.setItem('aerial-favorites', JSON.stringify(favorites));
-            updateFavoritesCount();
-            renderGallery();
-            if (currentVideoId) updateModalFavoriteBtn();
-        }
+/* gallery click */
+document.getElementById('gallery').onclick=e=>{
+    const fav=e.target.closest('.favorite-btn');
+    if(fav){
+        const id=fav.closest('.video-card').dataset.id;
+        const i=favorites.indexOf(id);
+        i>-1?favorites.splice(i,1):favorites.push(id);
+        localStorage.setItem('aerial-favorites',JSON.stringify(favorites));
+        updateStats();
+        render();
+        return;
+    }
 
-        function getVideoName(video) {
-            return stringsData[video.localizedNameKey] || video.localizedNameKey || 'Unknown';
-        }
+    const card=e.target.closest('.video-card');
+    if(!card)return;
+    openModal(videoMap[card.dataset.id]);
+};
 
-        function getQualityBadge(video) {
-            if (video['url-4K-HDR']) return { text: '4K HDR', cls: '4k-hdr' };
-            if (video['url-4K-SDR'] || video['url-4K-SDR-240FPS']) return { text: '4K', cls: '' };
-            if (video['url-1080-HDR']) return { text: '1080 HDR', cls: '' };
-            return { text: '1080p', cls: '' };
-        }
+/* modal */
+function openModal(v){
+    currentVideoId=v.id;
+    const vid=document.getElementById('modalVideo');
 
-        function filterVideos() {
-            return videosData.filter(v => {
-                const name = getVideoName(v).toLowerCase();
-                return (!searchQuery || name.includes(searchQuery.toLowerCase())) &&
-                       (qualityFilter === 'all' || 
-                        (qualityFilter === '4K-HDR' && v['url-4K-HDR']) ||
-                        (qualityFilter === '4K-SDR' && (v['url-4K-SDR'] || v['url-4K-SDR-240FPS'])) ||
-                        (qualityFilter === '1080-SDR' && (v['url-1080-SDR'] || v['url-1080-H264']))) &&
-                       (currentVideoFilter === 'all' || favorites.includes(v.id));
-            });
-        }
+    const qualities=[
+        ['4K HDR',       'url-4K-HDR'],
+        ['4K',           'url-4K-SDR'],
+        ['4K 240fps',    'url-4K-SDR-240FPS'],
+        ['1080p HDR',    'url-1080-HDR'],
+        ['1080p',        'url-1080-SDR'],
+        ['1080p H264',   'url-1080-H264'],
+        ['720p HDR',     'url-720-HDR'],
+        ['720p',         'url-720-SDR']
+    ].filter(q=>v[q[1]]);
 
-        function renderGallery() {
-            const gallery = document.getElementById('gallery');
-            const filtered = filterVideos();
+    function set(q){
+        vid.src=v[q[1]];
+        vid.play();
+        document.querySelectorAll('.quality-btn')
+            .forEach(b=>b.classList.toggle('active',b.dataset.key===q[1]));
+    }
 
-            if (!filtered.length) {
-                gallery.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:6rem 1rem;color:#777;">No videos found.</div>';
-                return;
-            }
+    const qDiv=document.getElementById('qualitySelector');
+    qDiv.innerHTML=qualities.map(q=>`
+        <button class="quality-btn" data-key="${q[1]}">${q[0]}</button>
+    `).join('');
 
-            gallery.innerHTML = filtered.map(video => {
-                const name = getVideoName(video);
-                const q = getQualityBadge(video);
-                const fav = favorites.includes(video.id);
-                return `
-                    <div class="video-card" data-id="${video.id}">
-                        <div class="video-preview-container">
-                            <img class="video-preview" src="${video.previewImage}" loading="lazy">
-                            <button class="favorite-btn ${fav?'active':''}" onclick="toggleFavorite('${video.id}', event)">${fav?'❤️':'🤍'}</button>
-                            <div class="poi-badge">${Object.keys(video.pointsOfInterest||{}).length} POI</div>
-                            <div class="quality-badge ${q.cls}">${q.text}</div>
-                            <div class="bottom-overlay">
-                                <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.45rem;">${name}</h3>
-                            </div>
-                        </div>
-                    </div>`;
-            }).join('');
-
-            document.querySelectorAll('.video-card').forEach(card => {
-                card.addEventListener('click', e => {
-                    if (!e.target.closest('.favorite-btn')) {
-                        const video = videosData.find(v => v.id === card.dataset.id);
-                        if (video) openModal(video);
-                    }
-                });
-            });
-        }
-
-        function openModal(video) { /* ... same as before ... */ 
-            currentVideoId = video.id;
-            const name = getVideoName(video);
-            const q = getQualityBadge(video);
-
-            document.getElementById('videoNameOverlay').textContent = name;
-            const badgeEl = document.getElementById('modalQualityBadge');
-            badgeEl.innerHTML = `<span class="${q.cls}">${q.text}</span>`;
-
-            const videoEl = document.getElementById('modalVideo');
-            videoEl.src = video['url-1080-SDR'] || video['url-1080-HDR'] || video['url-1080-H264'] || 
-                          video['url-4K-SDR'] || video['url-4K-HDR'] || '';
-
-            currentPOIs = video.pointsOfInterest || {};
-
-            const allQualities = [
-                {label: '4K HDR', key: 'url-4K-HDR'},
-                {label: '4K SDR', key: 'url-4K-SDR'},
-                {label: '4K 240FPS', key: 'url-4K-SDR-240FPS'},
-                {label: '1080 HDR', key: 'url-1080-HDR'},
-                {label: '1080p SDR', key: 'url-1080-SDR'},
-                {label: '1080 H.264', key: 'url-1080-H264'}
-            ];
-
-            const linksHTML = allQualities
-                .filter(q => video[q.key])
-                .map(q => `<a href="${video[q.key]}" class="quality-link" download>${q.label}</a>`)
-                .join('');
-
-            document.getElementById('modalQualityLinks').innerHTML = linksHTML || '<span style="color:#777;">No downloads available</span>';
-
-            updateModalFavoriteBtn();
-            document.getElementById('videoModal').classList.add('active');
-            document.body.style.overflow = 'hidden';
-            setupPOIOverlays(videoEl);
-        }
-
-        function updateModalFavoriteBtn() {
-            const btn = document.getElementById('modalFavoriteBtn');
-            btn.textContent = favorites.includes(currentVideoId) ? '❤️ Favorited' : '❤️ Favorite';
-        }
-
-        function setupPOIOverlays(videoEl) {
-            const overlay = document.getElementById('poiOverlay');
-            videoEl.ontimeupdate = () => {
-                const time = Math.floor(videoEl.currentTime);
-                const key = currentPOIs[time];
-                if (key) {
-                    overlay.textContent = stringsData[key] || key;
-                    overlay.classList.add('show');
-                    clearTimeout(poiTimeout);
-                    poiTimeout = setTimeout(() => overlay.classList.remove('show'), 6500);
-                }
-            };
-        }
-
-        function closeModal() {
-            document.getElementById('modalVideo').pause();
-            document.getElementById('modalVideo').src = '';
-            document.getElementById('poiOverlay').classList.remove('show');
-            clearTimeout(poiTimeout);
-            document.getElementById('videoModal').classList.remove('active');
-            document.body.style.overflow = 'auto';
-            currentVideoId = null;
-        }
-
-        let lastScroll = 0;
-        window.addEventListener('scroll', () => {
-            const ctrl = document.getElementById('controls');
-            const curr = window.scrollY;
-            ctrl.classList.toggle('hidden', curr > lastScroll && curr > 80);
-            lastScroll = curr;
-        });
-
-        // Event listeners
-        document.getElementById('searchInput').addEventListener('input', e => { searchQuery = e.target.value; renderGallery(); });
-        document.getElementById('languageSelect').addEventListener('change', e => loadData(e.target.value));
-        document.getElementById('closeModal').addEventListener('click', closeModal);
-        document.getElementById('videoModal').addEventListener('click', e => { if (e.target.id === 'videoModal') closeModal(); });
-        document.getElementById('modalFavoriteBtn').addEventListener('click', () => currentVideoId && toggleFavorite(currentVideoId));
-
-        document.getElementById('allFilter').addEventListener('click', () => {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('allFilter').classList.add('active');
-            currentVideoFilter = 'all';
-            renderGallery();
-        });
-
-        document.getElementById('favoritesFilter').addEventListener('click', () => {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('favoritesFilter').classList.add('active');
-            currentVideoFilter = 'favorites';
-            renderGallery();
-        });
-
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-        // Start with auto-detection
-        window.onload = () => {
-            const detected = getBrowserLanguage();
-            loadData(detected);
+    qDiv.querySelectorAll('button').forEach(b=>{
+        b.onclick=()=>{
+            const q=qualities.find(x=>x[1]===b.dataset.key);
+            set(q);
         };
-    </script>
+    });
+
+    set(qualities[qualities.length-1]);
+
+    document.getElementById('videoNameOverlay').textContent=name(v);
+
+    currentPOIs=v.pointsOfInterest||{};
+    vid.ontimeupdate=()=>{
+        const t=vid.currentTime;
+        const k=Object.keys(currentPOIs).find(x=>Math.abs(x-t)<0.5);
+        if(k){
+            const el=document.getElementById('poiOverlay');
+            el.textContent=stringsData[currentPOIs[k]]||currentPOIs[k];
+            el.classList.add('show');
+            clearTimeout(poiTimeout);
+            poiTimeout=setTimeout(()=>el.classList.remove('show'),4000);
+        }
+    };
+
+    document.getElementById('videoModal').classList.add('active');
+
+    /* sync modal fav button label */
+    updateModalFavBtn();
+}
+
+/* close */
+document.getElementById('closeModal').onclick=()=>{
+    document.getElementById('videoModal').classList.remove('active');
+};
+
+/* modal favorite button */
+function updateModalFavBtn(){
+    const btn=document.getElementById('modalFavoriteBtn');
+    if(!btn||!currentVideoId)return;
+    btn.textContent=favorites.includes(currentVideoId)?'❤️ Unfavorite':'🤍 Favorite';
+}
+
+document.getElementById('modalFavoriteBtn').onclick=()=>{
+    if(!currentVideoId)return;
+    const i=favorites.indexOf(currentVideoId);
+    i>-1?favorites.splice(i,1):favorites.push(currentVideoId);
+    localStorage.setItem('aerial-favorites',JSON.stringify(favorites));
+    updateModalFavBtn();
+    updateStats();
+    /* also refresh gallery card heart if visible */
+    const card=document.querySelector(`.video-card[data-id="${currentVideoId}"] .favorite-btn`);
+    if(card)card.textContent=favorites.includes(currentVideoId)?'❤️':'🤍';
+};
+
+/* controls */
+document.getElementById('searchInput').oninput=e=>{
+    searchQuery=e.target.value.toLowerCase();
+    render();
+};
+
+document.getElementById('languageSelect').onchange=e=>loadData(e.target.value);
+
+document.getElementById('allFilter').onclick=()=>{filter='all';render();};
+document.getElementById('favoritesFilter').onclick=()=>{filter='favorites';render();};
+
+function updateStats(){
+    document.getElementById('allCount').textContent=videosData.length;
+    const f=document.getElementById('favoritesCount');
+    f.textContent=favorites.length;
+    f.style.display=favorites.length?'inline':'none';
+}
+
+/* init */
+initLang();
+loadData(localStorage.getItem('aerial-lang')||'en-US');
+</script>
+
 </body>
 </html>
