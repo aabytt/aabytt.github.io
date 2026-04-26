@@ -78,6 +78,13 @@ body{
     margin-left:4px;
 }
 
+@media(max-width:600px){
+    .controls{padding:.6rem .8rem;gap:.5rem;}
+    .search-box{flex:1 1 100%;}
+    .language-selector{flex:1 1 0;min-width:0;}
+    .filter-btn{flex:0 0 auto;}
+}
+
 /* Gallery */
 .gallery{
     margin-top:80px;
@@ -88,6 +95,7 @@ body{
     position:relative;
     z-index:0;
 }
+@media(max-width:600px){.gallery{margin-top:110px;}}
 
 .video-card{
     background:#111;
@@ -186,7 +194,7 @@ body{
 
 .poi-overlay{
     position:absolute;
-    bottom:40px;
+    bottom:52px;
     left:20px;
     right:20px;
     z-index:10;
@@ -196,6 +204,7 @@ body{
     transition:.3s;
 }
 .poi-overlay.show{opacity:1;}
+@media(max-width:600px){.poi-overlay{font-size:.75rem;padding:8px;}}
 
 .modal-close{
     position:absolute;
@@ -212,11 +221,20 @@ body{
 }
 
 .modal-footer{
-    padding:1rem;
+    padding:.75rem 1rem;
     display:flex;
-    justify-content:space-between;
-    flex-wrap:wrap;
+    align-items:center;
+    gap:.5rem;
 }
+
+#qualitySelector{
+    display:flex;
+    gap:.5rem;
+    overflow-x:auto;
+    flex:1;
+    scrollbar-width:none;
+}
+#qualitySelector::-webkit-scrollbar{display:none;}
 
 .quality-btn{
     padding:6px 12px;
@@ -225,10 +243,23 @@ body{
     background:#000;
     color:#fff;
     cursor:pointer;
+    white-space:nowrap;
+    flex-shrink:0;
 }
 .quality-btn.active{
     background:#fff;
     color:#000;
+}
+
+#modalFavoriteBtn{
+    flex-shrink:0;
+    white-space:nowrap;
+    padding:6px 12px;
+    border-radius:20px;
+    border:1px solid #444;
+    background:#000;
+    color:#fff;
+    cursor:pointer;
 }
 </style>
 </head>
@@ -403,6 +434,18 @@ function openModal(v){
 
     set(qualities[qualities.length-1]);
 
+    /* scroll hint: briefly scroll to end then snap back to active */
+    requestAnimationFrame(()=>{
+        const qDiv=document.getElementById('qualitySelector');
+        const active=qDiv.querySelector('.quality-btn.active');
+        if(!active)return;
+        /* first jump to end so user sees there's more */
+        qDiv.scrollLeft=qDiv.scrollWidth;
+        setTimeout(()=>{
+            active.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+        },400);
+    });
+
     document.getElementById('videoNameOverlay').textContent=name(v);
 
     currentPOIs=v.pointsOfInterest||{};
@@ -456,8 +499,9 @@ document.getElementById('searchInput').oninput=e=>{
 
 document.getElementById('languageSelect').onchange=e=>loadData(e.target.value);
 
-document.getElementById('allFilter').onclick=()=>{filter='all';render();};
-document.getElementById('favoritesFilter').onclick=()=>{filter='favorites';render();};
+function setFilter(f){filter=f;document.getElementById('allFilter').classList.toggle('active',f==='all');document.getElementById('favoritesFilter').classList.toggle('active',f==='favorites');render();}
+document.getElementById('allFilter').onclick=()=>setFilter('all');
+document.getElementById('favoritesFilter').onclick=()=>setFilter('favorites');
 
 function updateStats(){
     document.getElementById('allCount').textContent=videosData.length;
