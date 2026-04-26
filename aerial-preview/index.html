@@ -42,11 +42,13 @@ body{
 .search-box{flex:1;position:relative;}
 .search-box input{
     width:100%;
-    padding:.8rem 1rem .8rem 2.4rem;
+    padding:.6rem 1rem .6rem 2.2rem;
     background:#111;
     border:1px solid var(--border);
-    color:#fff;
+    color:#bbb;
+    outline:none;
 }
+.search-box input::placeholder{color:#555;}
 .search-icon{
     position:absolute;
     left:.8rem;
@@ -56,10 +58,13 @@ body{
 }
 
 .language-selector{
-    padding:.6rem;
-    background:#111;
+    padding:.6rem 2rem .6rem 1rem;
+    background:#111 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14'%3E%3Cpath d='M5 2L1 6h8zM5 12l4-4H1z' fill='%23666'/%3E%3C/svg%3E") no-repeat right .7rem center;
     border:1px solid var(--border);
-    color:#fff;
+    color:#bbb;
+    cursor:pointer;
+    appearance:none;
+    -webkit-appearance:none;
 }
 
 .filter-btn{
@@ -72,10 +77,14 @@ body{
 .filter-btn.active{background:#fff;color:#000;}
 
 .counter-badge{
-    background:#f5576c;
-    border-radius:50%;
-    padding:2px 6px;
-    margin-left:4px;
+    border:1px solid #555;
+    border-radius:20px;
+    padding:1px 7px;
+    margin-left:6px;
+    font-size:.7rem;
+    letter-spacing:.05em;
+    color:#888;
+    background:transparent;
 }
 
 @media(max-width:600px){
@@ -279,7 +288,7 @@ body{
     </button>
 
     <button class="filter-btn" id="favoritesFilter">
-        ❤️ Favorites <span id="favoritesCount" class="counter-badge" style="display:none;"></span>
+        ♡ Favorites <span id="favoritesCount" class="counter-badge" style="display:none;"></span>
     </button>
 </div>
 
@@ -296,7 +305,7 @@ body{
 
         <div class="modal-footer">
             <div id="qualitySelector"></div>
-            <button id="modalFavoriteBtn">❤️ Favorite</button>
+            <button id="modalFavoriteBtn">♡ Favorite</button>
         </div>
     </div>
 </div>
@@ -372,7 +381,7 @@ function render(){
     <div class="video-card" data-id="${v.id}">
         <div class="video-preview-container">
             <img src="${v.previewImage}" class="video-preview">
-            <button class="favorite-btn">${favorites.includes(v.id)?'❤️':'🤍'}</button>
+            <button class="favorite-btn">${favorites.includes(v.id)?'♥':'♡'}</button>
             <div class="poi-badge">${Object.keys(v.pointsOfInterest||{}).length} POI</div>
             <div class="bottom-overlay"><h3>${name(v)}</h3></div>
         </div>
@@ -476,7 +485,7 @@ document.getElementById('closeModal').onclick=()=>{
 function updateModalFavBtn(){
     const btn=document.getElementById('modalFavoriteBtn');
     if(!btn||!currentVideoId)return;
-    btn.textContent=favorites.includes(currentVideoId)?'❤️ Unfavorite':'🤍 Favorite';
+    btn.textContent=favorites.includes(currentVideoId)?'♥ Unfavorite':'♡ Favorite';
 }
 
 document.getElementById('modalFavoriteBtn').onclick=()=>{
@@ -488,7 +497,7 @@ document.getElementById('modalFavoriteBtn').onclick=()=>{
     updateStats();
     /* also refresh gallery card heart if visible */
     const card=document.querySelector(`.video-card[data-id="${currentVideoId}"] .favorite-btn`);
-    if(card)card.textContent=favorites.includes(currentVideoId)?'❤️':'🤍';
+    if(card)card.textContent=favorites.includes(currentVideoId)?'♥':'♡';
 };
 
 /* controls */
