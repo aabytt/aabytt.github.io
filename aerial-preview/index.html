@@ -35,7 +35,9 @@ body{
     display:flex;
     gap:.8rem;
     flex-wrap:wrap;
+    transition:transform .3s ease;
 }
+.controls.hidden{transform:translateY(-110%);}
 
 .search-box{flex:1;position:relative;}
 .search-box input{
@@ -463,6 +465,14 @@ function updateStats(){
     f.textContent=favorites.length;
     f.style.display=favorites.length?'inline':'none';
 }
+
+/* hide on scroll down, show on scroll up */
+let lastScroll=0;
+window.addEventListener("scroll",()=>{
+    const cur=window.scrollY;
+    document.querySelector(".controls").classList.toggle("hidden",cur>lastScroll&&cur>60);
+    lastScroll=cur;
+},{passive:true});
 
 /* init */
 initLang();
