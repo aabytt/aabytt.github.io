@@ -18,6 +18,8 @@
     --bg-secondary:#111;
     --text-primary:#f0f0f0;
     --border:#333;
+    --accent:#fff;
+    --poi-active: rgba(255,255,255,0.15);
 }
 
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -30,7 +32,7 @@ body{
     color:var(--text-primary);
 }
 
-/* Controls */
+/* ─── Controls ─── */
 .controls{
     position:fixed;
     top:0;left:0;right:0;
@@ -42,7 +44,7 @@ body{
     display:flex;
     gap:.8rem;
     flex-wrap:wrap;
-    transition:transform .3s ease;
+    transition:transform .35s cubic-bezier(.4,0,.2,1);
 }
 .controls.hidden{transform:translateY(-110%);}
 
@@ -58,7 +60,9 @@ body{
     font-weight:300;
     font-size:1rem;
     letter-spacing:.04em;
+    transition:border-color .2s;
 }
+.search-box input:focus{border-color:#555;}
 .search-box input::placeholder{color:#555;}
 .search-icon{
     position:absolute;
@@ -84,6 +88,7 @@ body{
     border:1px solid var(--border);
     color:#bbb;
     cursor:pointer;
+    transition:background .2s,color .2s;
 }
 .filter-btn.active{background:#fff;color:#000;}
 
@@ -105,7 +110,7 @@ body{
     .filter-btn{flex:0 0 auto;}
 }
 
-/* Gallery */
+/* ─── Gallery ─── */
 .gallery{
     margin-top:80px;
     padding:1rem;
@@ -117,15 +122,35 @@ body{
 }
 @media(max-width:600px){.gallery{margin-top:110px;}}
 
+/* Card fade-in + stagger */
+@keyframes cardReveal {
+    from {
+        opacity: 0;
+        transform: translateY(22px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
 .video-card{
     background:#111;
     border:1px solid var(--border);
     border-radius:10px;
     overflow:hidden;
     cursor:pointer;
-    transition:.3s;
+    transition:transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s;
+    opacity:0; /* starts hidden; JS adds .revealed */
 }
-.video-card:hover{transform:scale(1.02);}
+.video-card.revealed{
+    animation: cardReveal .45s cubic-bezier(.4,0,.2,1) both;
+    opacity:1;
+}
+.video-card:hover{
+    transform:scale(1.02);
+    box-shadow: 0 8px 30px rgba(0,0,0,.6);
+}
 
 .video-preview-container{
     position:relative;
@@ -135,9 +160,10 @@ body{
 .video-preview{
     width:100%;
     display:block;
+    transition: transform .4s cubic-bezier(.4,0,.2,1);
 }
+.video-card:hover .video-preview{transform:scale(1.04);}
 
-/* 🔧 lowered stacking */
 .favorite-btn{
     position:absolute;
     top:10px;
@@ -149,7 +175,10 @@ body{
     background:rgba(0,0,0,.8);
     color:#fff;
     cursor:pointer;
+    transition: transform .15s, background .2s;
 }
+.favorite-btn:hover{transform:scale(1.15);}
+.favorite-btn.is-fav{color:#ff6b6b;}
 
 .poi-badge{
     position:absolute;
@@ -172,7 +201,16 @@ body{
     pointer-events:none;
 }
 
-/* Modal */
+/* ─── Modal ─── */
+@keyframes modalIn {
+    from { opacity:0; transform:scale(0.97); }
+    to   { opacity:1; transform:scale(1); }
+}
+@keyframes modalOut {
+    from { opacity:1; transform:scale(1); }
+    to   { opacity:0; transform:scale(0.97); }
+}
+
 .modal{
     position:fixed;
     inset:0;
@@ -182,12 +220,18 @@ body{
     align-items:center;
     opacity:0;
     visibility:hidden;
-    transition:.3s;
-    z-index:9999; /* 🔥 critical fix */
+    transition:opacity .3s, visibility .3s;
+    z-index:9999;
 }
 .modal.active{
     opacity:1;
     visibility:visible;
+}
+.modal.active .modal-content{
+    animation: modalIn .3s cubic-bezier(.4,0,.2,1) both;
+}
+.modal.closing .modal-content{
+    animation: modalOut .25s cubic-bezier(.4,0,.2,1) both;
 }
 
 .modal-content{
@@ -199,8 +243,9 @@ body{
 
 .modal-video{
     width:100%;
-    max-height:85vh;
+    max-height:75vh;
     background:#000;
+    display:block;
 }
 
 .video-name-overlay{
@@ -212,18 +257,29 @@ body{
     padding:10px;
 }
 
+/* Current POI toast (above timeline) */
 .poi-overlay{
     position:absolute;
-    bottom:52px;
+    bottom:calc(52px + 56px + 8px); /* footer height + timeline height + gap */
     left:20px;
     right:20px;
     z-index:10;
-    background:rgba(0,0,0,.7);
-    padding:12px;
+    background:rgba(0,0,0,.75);
+    backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.1);
+    padding:10px 14px;
+    border-radius:6px;
     opacity:0;
-    transition:.3s;
+    transform:translateY(6px);
+    transition:opacity .3s, transform .3s;
+    pointer-events:none;
+    font-size:.85rem;
+    letter-spacing:.03em;
 }
-.poi-overlay.show{opacity:1;}
+.poi-overlay.show{
+    opacity:1;
+    transform:translateY(0);
+}
 @media(max-width:600px){.poi-overlay{font-size:.75rem;padding:8px;}}
 
 .modal-close{
@@ -238,8 +294,11 @@ body{
     width:45px;height:45px;
     border-radius:50%;
     cursor:pointer;
+    transition:background .2s, transform .15s;
 }
+.modal-close:hover{background:rgba(255,255,255,.15);transform:scale(1.1);}
 
+/* ─── Modal Footer ─── */
 .modal-footer{
     padding:.75rem 1rem;
     display:flex;
@@ -265,11 +324,9 @@ body{
     cursor:pointer;
     white-space:nowrap;
     flex-shrink:0;
+    transition:background .2s, color .2s;
 }
-.quality-btn.active{
-    background:#fff;
-    color:#000;
-}
+.quality-btn.active{background:#fff;color:#000;}
 
 #modalFavoriteBtn{
     flex-shrink:0;
@@ -280,6 +337,97 @@ body{
     background:#000;
     color:#fff;
     cursor:pointer;
+    transition:background .2s, color .2s, border-color .2s;
+}
+#modalFavoriteBtn.is-fav{border-color:#ff6b6b;color:#ff6b6b;}
+
+/* ─── POI Timeline ─── */
+.poi-timeline{
+    position:relative;
+    height:56px;
+    background:rgba(0,0,0,.8);
+    backdrop-filter:blur(8px);
+    border-top:1px solid rgba(255,255,255,.08);
+    display:flex;
+    align-items:center;
+    padding:0 1rem;
+}
+.poi-timeline.hidden{display:none;}
+
+/* progress track */
+.timeline-track{
+    position:relative;
+    flex:1;
+    height:3px;
+    background:rgba(255,255,255,.12);
+    border-radius:2px;
+    cursor:pointer;
+}
+
+/* playback progress bar */
+.timeline-progress{
+    position:absolute;
+    left:0;top:0;
+    height:100%;
+    background:rgba(255,255,255,.55);
+    border-radius:2px;
+    pointer-events:none;
+    transition:width .25s linear;
+    will-change:width;
+}
+
+/* POI marker dots */
+.poi-marker{
+    position:absolute;
+    top:50%;
+    transform:translate(-50%,-50%);
+    width:10px;height:10px;
+    border-radius:50%;
+    background:#fff;
+    border:2px solid rgba(0,0,0,.8);
+    cursor:pointer;
+    transition:transform .15s, background .15s;
+    z-index:2;
+}
+.poi-marker:hover,.poi-marker.active{
+    transform:translate(-50%,-50%) scale(1.6);
+    background:#fff;
+}
+.poi-marker.active{
+    background: #6cf;
+    box-shadow: 0 0 8px rgba(102,204,255,.7);
+}
+
+/* POI marker tooltip */
+.poi-marker-tooltip{
+    position:absolute;
+    bottom:calc(100% + 12px);
+    left:50%;
+    transform:translateX(-50%);
+    background:rgba(10,10,10,.95);
+    border:1px solid rgba(255,255,255,.12);
+    backdrop-filter:blur(8px);
+    padding:5px 10px;
+    border-radius:5px;
+    white-space:nowrap;
+    font-size:.72rem;
+    letter-spacing:.03em;
+    color:#ccc;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .2s;
+    z-index:20;
+}
+.poi-marker:hover .poi-marker-tooltip{opacity:1;}
+
+/* duration label */
+.timeline-duration{
+    margin-left:.75rem;
+    font-size:.72rem;
+    color:#555;
+    white-space:nowrap;
+    min-width:38px;
+    text-align:right;
 }
 </style>
 </head>
@@ -314,6 +462,15 @@ body{
 
         <button id="closeModal" class="modal-close">×</button>
 
+        <!-- POI Timeline (sits between video and footer) -->
+        <div id="poiTimeline" class="poi-timeline hidden">
+            <div id="timelineTrack" class="timeline-track">
+                <div id="timelineProgress" class="timeline-progress" style="width:0%"></div>
+                <!-- poi markers injected here -->
+            </div>
+            <div id="timelineDuration" class="timeline-duration">0:00</div>
+        </div>
+
         <div class="modal-footer">
             <div id="qualitySelector"></div>
             <button id="modalFavoriteBtn">♡ Favorite</button>
@@ -328,8 +485,9 @@ let favorites=JSON.parse(localStorage.getItem('aerial-favorites')||'[]');
 let currentVideoId=null,currentPOIs={};
 let searchQuery='',filter='all';
 let poiTimeout;
+let activeMarkerKey=null;
 
-/* language */
+/* ─── Language ─── */
 const langs=[
     ['ar-AE','العربية'],['be-BY','Беларуская'],['ca-ES','Català'],
     ['cs-CZ','Čeština'],['da-DK','Dansk'],['de-DE','Deutsch'],
@@ -351,34 +509,30 @@ function initLang(){
     const sel=document.getElementById('languageSelect');
     langs.forEach(l=>{
         const o=document.createElement('option');
-        o.value=l[0];
-        o.textContent=l[1];
+        o.value=l[0]; o.textContent=l[1];
         sel.appendChild(o);
     });
     sel.value=localStorage.getItem('aerial-lang')||'en-US';
 }
 
-/* load */
+/* ─── Data ─── */
 async function loadData(lang){
     localStorage.setItem('aerial-lang',lang);
-
     const [v,s]=await Promise.all([
         fetch('assets/videos.json'),
         fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/${lang}.json`)
     ]);
-
     videosData=(await v.json()).assets||[];
     stringsData=(await s.json()).strings||{};
-
     videoMap={};
     videosData.forEach(v=>videoMap[v.id]=v);
-
     updateStats();
     render();
 }
 
 function name(v){return stringsData[v.localizedNameKey]||v.localizedNameKey;}
 
+/* ─── Render + Stagger ─── */
 function render(){
     const list=videosData.filter(v=>{
         const n=name(v).toLowerCase();
@@ -387,50 +541,62 @@ function render(){
     });
 
     const g=document.getElementById('gallery');
-
     g.innerHTML=list.map(v=>`
     <div class="video-card" data-id="${v.id}">
         <div class="video-preview-container">
-            <img src="${v.previewImage}" class="video-preview">
-            <button class="favorite-btn">${favorites.includes(v.id)?'♥':'♡'}</button>
+            <img src="${v.previewImage}" class="video-preview" loading="lazy">
+            <button class="favorite-btn${favorites.includes(v.id)?' is-fav':''}">${favorites.includes(v.id)?'♥':'♡'}</button>
             <div class="poi-badge">${Object.keys(v.pointsOfInterest||{}).length} POI</div>
             <div class="bottom-overlay"><h3>${name(v)}</h3></div>
         </div>
     </div>`).join('');
+
+    /* Stagger reveal */
+    const cards=g.querySelectorAll('.video-card');
+    cards.forEach((card,i)=>{
+        card.style.animationDelay=`${Math.min(i*45, 600)}ms`;
+        /* Use rAF so browser registers initial opacity:0 first */
+        requestAnimationFrame(()=>card.classList.add('revealed'));
+    });
 }
 
-/* gallery click */
+/* ─── Gallery clicks ─── */
 document.getElementById('gallery').onclick=e=>{
     const fav=e.target.closest('.favorite-btn');
     if(fav){
         const id=fav.closest('.video-card').dataset.id;
-        const i=favorites.indexOf(id);
-        i>-1?favorites.splice(i,1):favorites.push(id);
-        localStorage.setItem('aerial-favorites',JSON.stringify(favorites));
+        toggleFavorite(id);
+        fav.textContent=favorites.includes(id)?'♥':'♡';
+        fav.classList.toggle('is-fav',favorites.includes(id));
         updateStats();
-        render();
+        if(filter==='favorites') render();
         return;
     }
-
     const card=e.target.closest('.video-card');
     if(!card)return;
     openModal(videoMap[card.dataset.id]);
 };
 
-/* modal */
+function toggleFavorite(id){
+    const i=favorites.indexOf(id);
+    i>-1?favorites.splice(i,1):favorites.push(id);
+    localStorage.setItem('aerial-favorites',JSON.stringify(favorites));
+}
+
+/* ─── Modal ─── */
 function openModal(v){
     currentVideoId=v.id;
     const vid=document.getElementById('modalVideo');
 
     const qualities=[
-        ['4K HDR',       'url-4K-HDR'],
-        ['4K',           'url-4K-SDR'],
-        ['4K 240fps',    'url-4K-SDR-240FPS'],
-        ['1080p HDR',    'url-1080-HDR'],
-        ['1080p',        'url-1080-SDR'],
-        ['1080p H264',   'url-1080-H264'],
-        ['720p HDR',     'url-720-HDR'],
-        ['720p',         'url-720-SDR']
+        ['4K HDR','url-4K-HDR'],
+        ['4K','url-4K-SDR'],
+        ['4K 240fps','url-4K-SDR-240FPS'],
+        ['1080p HDR','url-1080-HDR'],
+        ['1080p','url-1080-SDR'],
+        ['1080p H264','url-1080-H264'],
+        ['720p HDR','url-720-HDR'],
+        ['720p','url-720-SDR']
     ].filter(q=>v[q[1]]);
 
     function set(q){
@@ -444,82 +610,188 @@ function openModal(v){
     qDiv.innerHTML=qualities.map(q=>`
         <button class="quality-btn" data-key="${q[1]}">${q[0]}</button>
     `).join('');
-
     qDiv.querySelectorAll('button').forEach(b=>{
-        b.onclick=()=>{
-            const q=qualities.find(x=>x[1]===b.dataset.key);
-            set(q);
-        };
+        b.onclick=()=>set(qualities.find(x=>x[1]===b.dataset.key));
     });
-
     set(qualities[qualities.length-1]);
 
-    /* scroll hint: briefly scroll to end then snap back to active */
     requestAnimationFrame(()=>{
         const qDiv=document.getElementById('qualitySelector');
         const active=qDiv.querySelector('.quality-btn.active');
         if(!active)return;
-        /* first jump to end so user sees there's more */
         qDiv.scrollLeft=qDiv.scrollWidth;
-        setTimeout(()=>{
-            active.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
-        },400);
+        setTimeout(()=>active.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),400);
     });
 
     document.getElementById('videoNameOverlay').textContent=name(v);
 
     currentPOIs=v.pointsOfInterest||{};
-    vid.ontimeupdate=()=>{
-        const t=vid.currentTime;
-        const k=Object.keys(currentPOIs).find(x=>Math.abs(x-t)<0.5);
-        if(k){
-            const el=document.getElementById('poiOverlay');
-            el.textContent=stringsData[currentPOIs[k]]||currentPOIs[k];
-            el.classList.add('show');
-            clearTimeout(poiTimeout);
-            poiTimeout=setTimeout(()=>el.classList.remove('show'),4000);
-        }
-    };
+    activeMarkerKey=null;
 
+    /* Build timeline */
+    buildTimeline(currentPOIs, vid);
+
+    /* timeupdate: progress bar + POI toast + marker highlight */
+    vid.ontimeupdate=()=>onTimeUpdate(vid);
+
+    document.getElementById('videoModal').classList.remove('closing');
     document.getElementById('videoModal').classList.add('active');
 
-    /* sync modal fav button label */
     updateModalFavBtn();
 }
 
-/* close */
-document.getElementById('closeModal').onclick=()=>{
-    document.getElementById('videoModal').classList.remove('active');
-};
+/* ─── POI Timeline ─── */
+function buildTimeline(pois, vid){
+    const timeline=document.getElementById('poiTimeline');
+    const track=document.getElementById('timelineTrack');
+    const progress=document.getElementById('timelineProgress');
 
-/* modal favorite button */
+    /* remove old markers */
+    track.querySelectorAll('.poi-marker').forEach(m=>m.remove());
+    progress.style.width='0%';
+
+    const keys=Object.keys(pois);
+    if(!keys.length){timeline.classList.add('hidden');return;}
+    timeline.classList.remove('hidden');
+
+    /* We need video duration. If not known yet, wait */
+    function placeMarkers(){
+        const dur=vid.duration||0;
+        if(!dur) return;
+        keys.forEach(t=>{
+            const pct=(parseFloat(t)/dur)*100;
+            const label=stringsData[pois[t]]||pois[t];
+
+            const marker=document.createElement('div');
+            marker.className='poi-marker';
+            marker.style.left=`${pct}%`;
+            marker.dataset.time=t;
+
+            const tip=document.createElement('div');
+            tip.className='poi-marker-tooltip';
+            tip.textContent=label;
+            marker.appendChild(tip);
+
+            marker.onclick=e=>{
+                e.stopPropagation();
+                vid.currentTime=parseFloat(t);
+                vid.play();
+            };
+            track.appendChild(marker);
+        });
+    }
+
+    if(vid.readyState>=1){placeMarkers();}
+    else{
+        vid.onloadedmetadata=()=>placeMarkers();
+    }
+
+    /* Click on track to seek */
+    track.onclick=e=>{
+        if(e.target.classList.contains('poi-marker')) return; /* handled above */
+        const rect=track.getBoundingClientRect();
+        const pct=(e.clientX-rect.left)/rect.width;
+        vid.currentTime=pct*(vid.duration||0);
+    };
+
+    /* Update duration label */
+    vid.addEventListener('loadedmetadata', ()=>{
+        document.getElementById('timelineDuration').textContent=fmtTime(vid.duration);
+    },{once:true});
+}
+
+function onTimeUpdate(vid){
+    const t=vid.currentTime;
+    const dur=vid.duration||1;
+
+    /* progress bar */
+    document.getElementById('timelineProgress').style.width=`${(t/dur)*100}%`;
+
+    /* current time label */
+    document.getElementById('timelineDuration').textContent=fmtTime(t);
+
+    /* POI toast + active marker */
+    const k=Object.keys(currentPOIs).find(x=>Math.abs(x-t)<0.5);
+    if(k && k!==activeMarkerKey){
+        activeMarkerKey=k;
+        /* toast */
+        const el=document.getElementById('poiOverlay');
+        el.textContent=stringsData[currentPOIs[k]]||currentPOIs[k];
+        el.classList.add('show');
+        clearTimeout(poiTimeout);
+        poiTimeout=setTimeout(()=>el.classList.remove('show'),4000);
+
+        /* highlight marker */
+        document.querySelectorAll('.poi-marker').forEach(m=>{
+            m.classList.toggle('active', m.dataset.time===k);
+        });
+    } else if(!k){
+        /* de-highlight all once we've moved away */
+        if(activeMarkerKey && Math.abs(activeMarkerKey-t)>1){
+            document.querySelectorAll('.poi-marker.active').forEach(m=>m.classList.remove('active'));
+            activeMarkerKey=null;
+        }
+    }
+}
+
+function fmtTime(s){
+    if(!isFinite(s)) return '0:00';
+    const m=Math.floor(s/60);
+    const sec=Math.floor(s%60);
+    return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+/* ─── Close modal ─── */
+function closeModal(){
+    const modal=document.getElementById('videoModal');
+    modal.classList.add('closing');
+    setTimeout(()=>{
+        modal.classList.remove('active','closing');
+        document.getElementById('modalVideo').src='';
+        document.getElementById('poiTimeline').classList.add('hidden');
+        document.getElementById('poiOverlay').classList.remove('show');
+    },250);
+}
+document.getElementById('closeModal').onclick=closeModal;
+document.getElementById('videoModal').onclick=e=>{
+    if(e.target===document.getElementById('videoModal')) closeModal();
+};
+document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
+
+/* ─── Modal favorite ─── */
 function updateModalFavBtn(){
     const btn=document.getElementById('modalFavoriteBtn');
     if(!btn||!currentVideoId)return;
-    btn.textContent=favorites.includes(currentVideoId)?'♥ Unfavorite':'♡ Favorite';
+    const isFav=favorites.includes(currentVideoId);
+    btn.textContent=isFav?'♥ Unfavorite':'♡ Favorite';
+    btn.classList.toggle('is-fav',isFav);
 }
 
 document.getElementById('modalFavoriteBtn').onclick=()=>{
     if(!currentVideoId)return;
-    const i=favorites.indexOf(currentVideoId);
-    i>-1?favorites.splice(i,1):favorites.push(currentVideoId);
-    localStorage.setItem('aerial-favorites',JSON.stringify(favorites));
+    toggleFavorite(currentVideoId);
     updateModalFavBtn();
     updateStats();
-    /* also refresh gallery card heart if visible */
     const card=document.querySelector(`.video-card[data-id="${currentVideoId}"] .favorite-btn`);
-    if(card)card.textContent=favorites.includes(currentVideoId)?'♥':'♡';
+    if(card){
+        card.textContent=favorites.includes(currentVideoId)?'♥':'♡';
+        card.classList.toggle('is-fav',favorites.includes(currentVideoId));
+    }
 };
 
-/* controls */
+/* ─── Controls ─── */
 document.getElementById('searchInput').oninput=e=>{
     searchQuery=e.target.value.toLowerCase();
     render();
 };
-
 document.getElementById('languageSelect').onchange=e=>loadData(e.target.value);
 
-function setFilter(f){filter=f;document.getElementById('allFilter').classList.toggle('active',f==='all');document.getElementById('favoritesFilter').classList.toggle('active',f==='favorites');render();}
+function setFilter(f){
+    filter=f;
+    document.getElementById('allFilter').classList.toggle('active',f==='all');
+    document.getElementById('favoritesFilter').classList.toggle('active',f==='favorites');
+    render();
+}
 document.getElementById('allFilter').onclick=()=>setFilter('all');
 document.getElementById('favoritesFilter').onclick=()=>setFilter('favorites');
 
@@ -530,15 +802,15 @@ function updateStats(){
     f.style.display=favorites.length?'inline':'none';
 }
 
-/* hide on scroll down, show on scroll up */
+/* ─── Hide/show controls on scroll ─── */
 let lastScroll=0;
-window.addEventListener("scroll",()=>{
+window.addEventListener('scroll',()=>{
     const cur=window.scrollY;
-    document.querySelector(".controls").classList.toggle("hidden",cur>lastScroll&&cur>60);
+    document.querySelector('.controls').classList.toggle('hidden',cur>lastScroll&&cur>60);
     lastScroll=cur;
 },{passive:true});
 
-/* init */
+/* ─── Init ─── */
 initLang();
 loadData(localStorage.getItem('aerial-lang')||'en-US');
 </script>
