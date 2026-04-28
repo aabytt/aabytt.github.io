@@ -552,7 +552,7 @@ function initLang(){
 async function loadData(lang){
     localStorage.setItem('aerial-lang',lang);
     const [v,s]=await Promise.all([
-        fetch('assets/videos.json'),
+        fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/videos.json`),
         fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/${lang}.json`)
     ]);
     videosData=(await v.json()).assets||[];
