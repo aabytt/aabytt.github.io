@@ -103,10 +103,43 @@ body{
     background:transparent;
 }
 
+.source-dropdown{position:relative;}
+.src-arrow{margin-left:6px;opacity:.5;vertical-align:middle;}
+.source-menu{
+    display:none;
+    position:absolute;
+    top:calc(100% + 4px);
+    left:0;
+    min-width:100%;
+    background:#111;
+    border:1px solid var(--border);
+    list-style:none;
+    z-index:200;
+    max-height:320px;
+    overflow-y:auto;
+    scrollbar-width:thin;
+}
+.source-dropdown.open .source-menu{display:block;}
+.source-menu li{
+    padding:.5rem 1rem;
+    cursor:pointer;
+    white-space:nowrap;
+    color:#bbb;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:1rem;
+    font-size:.95rem;
+}
+.source-menu li:hover{background:#1a1a1a;color:#fff;}
+.source-menu li.selected{color:#fff;}
+.source-menu li .counter-badge{flex-shrink:0;}
+
 @media(max-width:600px){
     .controls{padding:.6rem .8rem;gap:.5rem;}
     .search-box{flex:1 1 100%;}
     .language-selector{flex:1 1 0;min-width:0;}
+    .source-dropdown{flex:0 0 auto;}
     .filter-btn{flex:0 0 auto;}
 }
 
@@ -468,12 +501,15 @@ body{
 
     <select id="languageSelect" class="language-selector"></select>
 
-    <button class="filter-btn active" id="allFilter">
-        All <span id="allCount" class="counter-badge">0</span>
-    </button>
+    <div class="source-dropdown" id="sourceDropdown">
+        <button class="filter-btn active" id="sourceBtn">
+            <span id="sourceLabel">All</span><span id="sourceCount" class="counter-badge">0</span><svg class="src-arrow" xmlns="http://www.w3.org/2000/svg" width="9" height="12" viewBox="0 0 10 14"><path d="M5 2L1 6h8zM5 12l4-4H1z" fill="currentColor"/></svg>
+        </button>
+        <ul class="source-menu" id="sourceMenu"></ul>
+    </div>
 
     <button class="filter-btn" id="favoritesFilter">
-        ♡ Favorites <span id="favoritesCount" class="counter-badge" style="display:none;"></span>
+        ♡ <span id="favoritesCount" class="counter-badge" style="display:none;"></span>
     </button>
 </div>
 
@@ -516,7 +552,7 @@ let videosData=[],videoMap={},stringsData={};
 let favorites=JSON.parse(localStorage.getItem('aerial-favorites')||'[]');
 
 let currentVideoId=null,currentPOIs={};
-let searchQuery='',filter='all';
+let searchQuery='',filter='all',sourceFilter='all';
 let poiTimeout;
 let activeMarkerKey=null;
 
@@ -570,7 +606,8 @@ function render(){
     const list=videosData.filter(v=>{
         const n=name(v).toLowerCase();
         return (!searchQuery||n.includes(searchQuery)) &&
-               (filter==='all'||favorites.includes(v.id));
+               (filter==='all'||favorites.includes(v.id)) &&
+               (sourceFilter==='all'||v.source===sourceFilter);
     });
 
     const g=document.getElementById('gallery');
@@ -828,15 +865,61 @@ document.getElementById('languageSelect').onchange=e=>loadData(e.target.value);
 
 function setFilter(f){
     filter=f;
-    document.getElementById('allFilter').classList.toggle('active',f==='all');
     document.getElementById('favoritesFilter').classList.toggle('active',f==='favorites');
     render();
 }
-document.getElementById('allFilter').onclick=()=>setFilter('all');
-document.getElementById('favoritesFilter').onclick=()=>setFilter('favorites');
+document.getElementById('favoritesFilter').onclick=()=>setFilter(filter==='favorites'?'all':'favorites');
+
+function populateSourceSelect(){
+    const menu=document.getElementById('sourceMenu');
+    const btn=document.getElementById('sourceBtn');
+    const countBadge=document.getElementById('sourceCount');
+    const labelEl=document.getElementById('sourceLabel');
+
+    /* gather counts */
+    const counts={};
+    videosData.forEach(v=>{const s=v.source||'Unknown';counts[s]=(counts[s]||0)+1;});
+    const sources=Object.keys(counts).sort();
+    const allCount=videosData.length;
+
+    /* build menu */
+    menu.innerHTML=`<li class="selected" data-src="all"><span>All</span><span class="counter-badge">${allCount}</span></li>`
+        +sources.map(s=>`<li data-src="${s}"><span>${s}</span><span class="counter-badge">${counts[s]}</span></li>`).join('');
+
+    /* mark selected */
+    menu.querySelectorAll('li').forEach(li=>{
+        li.classList.toggle('selected', li.dataset.src===sourceFilter);
+        li.onclick=e=>{
+            e.stopPropagation();
+            sourceFilter=li.dataset.src;
+            /* update button appearance */
+            const isAll=sourceFilter==='all';
+            btn.classList.toggle('active', isAll);
+            labelEl.textContent=isAll?'All':li.querySelector('span').textContent;
+            countBadge.textContent=isAll?allCount:counts[sourceFilter];
+            /* re-mark selected */
+            menu.querySelectorAll('li').forEach(x=>x.classList.toggle('selected',x.dataset.src===sourceFilter));
+            document.getElementById('sourceDropdown').classList.remove('open');
+            render();
+        };
+    });
+
+    /* sync button badge */
+    const isAll=sourceFilter==='all';
+    btn.classList.toggle('active', isAll);
+    labelEl.textContent=isAll?'All':sourceFilter;
+    countBadge.textContent=isAll?allCount:(counts[sourceFilter]||0);
+}
+
+/* toggle dropdown open/close */
+document.getElementById('sourceBtn').onclick=e=>{
+    e.stopPropagation();
+    document.getElementById('sourceDropdown').classList.toggle('open');
+};
+document.addEventListener('click',()=>document.getElementById('sourceDropdown').classList.remove('open'));
 
 function updateStats(){
-    document.getElementById('allCount').textContent=videosData.length;
+    populateSourceSelect();
     const f=document.getElementById('favoritesCount');
     f.textContent=favorites.length;
     f.style.display=favorites.length?'inline':'none';
@@ -856,4 +939,4 @@ loadData(localStorage.getItem('aerial-lang')||'en-US');
 </script>
 
 </body>
-</html> 
+</html>
