@@ -509,7 +509,7 @@ body{
     <select id="languageSelect" class="language-selector"></select>
 
     <div class="source-dropdown" id="sourceDropdown">
-        <button class="filter-btn active" id="sourceBtn">
+        <button class="filter-btn" id="sourceBtn">
             <span id="sourceLabel">All</span><span id="sourceCount" class="counter-badge">0</span><svg class="src-arrow" xmlns="http://www.w3.org/2000/svg" width="9" height="12" viewBox="0 0 10 14"><path d="M5 2L1 6h8zM5 12l4-4H1z" fill="currentColor"/></svg>
         </button>
         <ul class="source-menu" id="sourceMenu"></ul>
@@ -901,7 +901,6 @@ function populateSourceSelect(){
             sourceFilter=li.dataset.src;
             /* update button appearance */
             const isAll=sourceFilter==='all';
-            btn.classList.toggle('active', isAll);
             labelEl.textContent=isAll?'All':li.querySelector('span').textContent;
             countBadge.textContent=isAll?allCount:counts[sourceFilter];
             /* re-mark selected */
@@ -913,7 +912,6 @@ function populateSourceSelect(){
 
     /* sync button badge */
     const isAll=sourceFilter==='all';
-    btn.classList.toggle('active', isAll);
     labelEl.textContent=isAll?'All':sourceFilter;
     countBadge.textContent=isAll?allCount:(counts[sourceFilter]||0);
 }
