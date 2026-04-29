@@ -608,6 +608,169 @@ body{
     min-width:38px;
     text-align:right;
 }
+
+/* ─── Export Confirm Modal ─── */
+.export-modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.75);
+    backdrop-filter:blur(6px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:99999;
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .25s, visibility .25s;
+}
+.export-modal-overlay.active{
+    opacity:1;
+    visibility:visible;
+}
+.export-modal{
+    background:#111;
+    border:1px solid var(--border);
+    border-radius:10px;
+    width:min(420px,90vw);
+    overflow:hidden;
+    transform:scale(.96) translateY(8px);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+}
+.export-modal-overlay.active .export-modal{
+    transform:scale(1) translateY(0);
+}
+.export-modal-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:.75rem 1rem;
+    border-bottom:1px solid var(--border);
+}
+.export-modal-header h3{
+    font-size:.92rem;
+    font-weight:300;
+    letter-spacing:.06em;
+    color:#e0e0e0;
+}
+.export-modal-close{
+    background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.12);
+    color:#fff;
+    width:28px;height:28px;
+    border-radius:50%;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    font-size:1rem;
+    transition:background .2s;
+}
+.export-modal-close:hover{background:rgba(255,255,255,.18);}
+.export-modal-body{
+    padding:1.2rem 1rem;
+}
+.export-total{
+    display:flex;
+    align-items:baseline;
+    gap:.5rem;
+    margin-bottom:1rem;
+    padding-bottom:.9rem;
+    border-bottom:1px solid var(--border);
+}
+.export-total-num{
+    font-size:2rem;
+    font-weight:300;
+    color:#fff;
+    line-height:1;
+}
+.export-total-label{
+    font-size:.8rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:#666;
+}
+.export-sources{
+    display:flex;
+    flex-direction:column;
+    gap:.35rem;
+    margin-bottom:1.2rem;
+    max-height:200px;
+    overflow-y:auto;
+    scrollbar-width:thin;
+}
+.export-source-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:1rem;
+    font-size:.85rem;
+    letter-spacing:.03em;
+    color:#aaa;
+}
+.export-source-name{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.export-source-bar-wrap{
+    flex:1;
+    height:2px;
+    background:#222;
+    border-radius:2px;
+    overflow:hidden;
+    min-width:40px;
+}
+.export-source-bar{
+    height:100%;
+    background:#555;
+    border-radius:2px;
+    transition:width .4s cubic-bezier(.4,0,.2,1);
+}
+.export-source-count{
+    flex-shrink:0;
+    font-size:.78rem;
+    color:#555;
+    min-width:1.5rem;
+    text-align:right;
+}
+.export-modal-footer{
+    padding:.75rem 1rem 1rem;
+    display:flex;
+    gap:.6rem;
+    justify-content:flex-end;
+}
+.export-cancel-btn{
+    height:36px;
+    padding:0 1rem;
+    border-radius:6px;
+    background:transparent;
+    border:1px solid var(--border);
+    color:#aaa;
+    cursor:pointer;
+    font-family:'Segoe UI Light',sans-serif;
+    font-weight:300;
+    font-size:.9rem;
+    letter-spacing:.04em;
+    transition:border-color .2s,color .2s;
+}
+.export-cancel-btn:hover{border-color:#555;color:#ddd;}
+.export-download-btn{
+    height:36px;
+    padding:0 1.1rem;
+    border-radius:6px;
+    background:#fff;
+    border:1px solid #fff;
+    color:#000;
+    cursor:pointer;
+    font-family:'Segoe UI Light',sans-serif;
+    font-weight:300;
+    font-size:.9rem;
+    letter-spacing:.04em;
+    display:flex;
+    align-items:center;
+    gap:.4rem;
+    transition:opacity .2s;
+}
+.export-download-btn:hover{opacity:.85;}
+
 </style>
 </head>
 
@@ -635,7 +798,7 @@ body{
     </button>
 
     <button class="export-btn" id="exportBtn" title="Export filtered favorites as favorites.json">
-       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     </button>
 </div>
 
@@ -670,6 +833,30 @@ body{
             <button id="modalFavoriteBtn">&#x2661; Favorite</button>
         </div>
 
+    </div>
+</div>
+
+<!-- Export Confirm Modal -->
+<div class="export-modal-overlay" id="exportModal">
+    <div class="export-modal">
+        <div class="export-modal-header">
+            <h3>Export Favorites</h3>
+            <button class="export-modal-close" id="exportModalClose">&#x2715;</button>
+        </div>
+        <div class="export-modal-body">
+            <div class="export-total">
+                <span class="export-total-num" id="exportTotalNum">0</span>
+                <span class="export-total-label">entries to export</span>
+            </div>
+            <div class="export-sources" id="exportSourceList"></div>
+        </div>
+        <div class="export-modal-footer">
+            <button class="export-cancel-btn" id="exportCancelBtn">Cancel</button>
+            <button class="export-download-btn" id="exportConfirmBtn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download JSON
+            </button>
+        </div>
     </div>
 </div>
 
@@ -1061,15 +1248,11 @@ function updateStats(){
 }
 
 /* ─── Export filtered favorites as videos.json ─── */
-function exportFavoritesJSON(){
-    /* Collect videos that are favorited AND pass current search + source filter */
-    const exported=videosData.filter(v=>{
-        if(!favorites.includes(v.id)) return false;
-        const n=name(v).toLowerCase();
-        return (!searchQuery||n.includes(searchQuery)) &&
-               (sourceFilter==='all'||v.source===sourceFilter);
-    });
+function getExportedVideos(){
+    return videosData.filter(v=>favorites.includes(v.id));
+}
 
+function doExportDownload(exported){
     const payload=JSON.stringify({assets:exported},null,2);
     const blob=new Blob([payload],{type:'application/json'});
     const url=URL.createObjectURL(blob);
@@ -1079,14 +1262,51 @@ function exportFavoritesJSON(){
     a.click();
     URL.revokeObjectURL(url);
 
-    /* Flash feedback */
+    /* Flash feedback on export button */
     const btn=document.getElementById('exportBtn');
     btn.classList.remove('flash');
-    void btn.offsetWidth; /* reflow to restart animation */
+    void btn.offsetWidth;
     btn.classList.add('flash');
     setTimeout(()=>btn.classList.remove('flash'),800);
 }
-document.getElementById('exportBtn').onclick=exportFavoritesJSON;
+
+function openExportModal(){
+    const exported=getExportedVideos();
+    /* total */
+    document.getElementById('exportTotalNum').textContent=exported.length;
+
+    /* per-source counts */
+    const counts={};
+    exported.forEach(v=>{const s=v.source||'Unknown';counts[s]=(counts[s]||0)+1;});
+    const sources=Object.keys(counts).sort();
+    const max=Math.max(...Object.values(counts),1);
+    const list=document.getElementById('exportSourceList');
+    list.innerHTML=sources.map(s=>`
+        <div class="export-source-row">
+            <span class="export-source-name">${s}</span>
+            <div class="export-source-bar-wrap">
+                <div class="export-source-bar" style="width:${Math.round(counts[s]/max*100)}%"></div>
+            </div>
+            <span class="export-source-count">${counts[s]}</span>
+        </div>`).join('');
+
+    document.getElementById('exportModal').classList.add('active');
+}
+
+function closeExportModal(){
+    document.getElementById('exportModal').classList.remove('active');
+}
+
+document.getElementById('exportBtn').onclick=openExportModal;
+document.getElementById('exportModalClose').onclick=closeExportModal;
+document.getElementById('exportCancelBtn').onclick=closeExportModal;
+document.getElementById('exportModal').addEventListener('click',e=>{
+    if(e.target===document.getElementById('exportModal')) closeExportModal();
+});
+document.getElementById('exportConfirmBtn').onclick=()=>{
+    closeExportModal();
+    doExportDownload(getExportedVideos());
+};
 
 /* ─── Hide/show controls on scroll ─── */
 let lastScroll=0;
@@ -1100,6 +1320,7 @@ window.addEventListener('scroll',()=>{
 initLang();
 loadData(localStorage.getItem('aerial-lang')||'en-US');
 </script>
+
 
 </body>
 </html>
