@@ -196,7 +196,23 @@ body{
     .filter-btn{flex:0 0 auto;}
 }
 
-/* ─── Gallery ─── */
+/* ─── No-image stub ─── */
+.no-preview{
+    width:100%;
+    aspect-ratio:16/9;
+    background:#0d0d0d;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:.5rem;
+    color:#333;
+    font-size:.8rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    user-select:none;
+}
+.no-preview svg{opacity:.25;}
 .gallery{
     margin-top:80px;
     padding:1rem;
@@ -668,7 +684,7 @@ function render(){
     g.innerHTML=list.map(v=>`
     <div class="video-card" data-id="${v.id}">
         <div class="video-preview-container">
-            <img src="${v.previewImage}" class="video-preview" loading="lazy">
+            <img src="${v.previewImage||''}" class="video-preview" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'no-preview',innerHTML:'<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.2\\'><rect x=\\'3\\' y=\\'3\\' width=\\'18\\' height=\\'18\\' rx=\\'2\\'/><circle cx=\\'8.5\\' cy=\\'8.5\\' r=\\'1.5\\'/><polyline points=\\'21 15 16 10 5 21\\'/></svg><span>No preview</span>'}))">
             <button class="favorite-btn${favorites.includes(v.id)?' is-fav':''}">${favorites.includes(v.id)?'♥':'♡'}</button>
             <div class="poi-badge">${Object.keys(v.pointsOfInterest||{}).length} POI</div>
             <div class="bottom-overlay"><h3>${name(v)}</h3></div>
