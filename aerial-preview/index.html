@@ -134,6 +134,33 @@ body{
 .filter-btn:hover{border-color:#555;color:#ddd;}
 .filter-btn.active{background:#fff;color:#000;border-color:#fff;}
 
+/* ── Export button ── */
+.export-btn{
+    height:40px;
+    padding:0 .9rem;
+    border-radius:6px;
+    background:#111;
+    border:1px solid var(--border);
+    color:#aaa;
+    cursor:pointer;
+    font-family:'Segoe UI Light',sans-serif;
+    font-weight:300;
+    font-size:.95rem;
+    letter-spacing:.04em;
+    display:flex;
+    align-items:center;
+    gap:.4rem;
+    transition:background .2s,color .2s,border-color .2s;
+    white-space:nowrap;
+}
+.export-btn:hover{border-color:#555;color:#ddd;}
+.export-btn:disabled{opacity:.35;cursor:default;pointer-events:none;}
+@keyframes exportFlash{
+    0%{background:#fff;color:#000;border-color:#fff;}
+    100%{background:#111;color:#aaa;border-color:var(--border);}
+}
+.export-btn.flash{animation:exportFlash .8s ease forwards;}
+
 /* up/down arrow inside source button — uniform with language arrow */
 .src-arrow{
     display:inline-flex;
@@ -581,6 +608,10 @@ body{
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
         <span id="favoritesCount" class="counter-badge" style="display:none;"></span>
     </button>
+
+    <button class="export-btn" id="exportBtn" title="Export filtered favorites as videos.json">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </button>
 </div>
 
 <div id="gallery" class="gallery"></div>
@@ -991,7 +1022,36 @@ function updateStats(){
     const f=document.getElementById('favoritesCount');
     f.textContent=favorites.length;
     f.style.display=favorites.length?'inline':'none';
+    document.getElementById('exportBtn').disabled=favorites.length===0;
 }
+
+/* ─── Export filtered favorites as videos.json ─── */
+function exportFavoritesJSON(){
+    /* Collect videos that are favorited AND pass current search + source filter */
+    const exported=videosData.filter(v=>{
+        if(!favorites.includes(v.id)) return false;
+        const n=name(v).toLowerCase();
+        return (!searchQuery||n.includes(searchQuery)) &&
+               (sourceFilter==='all'||v.source===sourceFilter);
+    });
+
+    const payload=JSON.stringify({assets:exported},null,2);
+    const blob=new Blob([payload],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='favorites.json';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    /* Flash feedback */
+    const btn=document.getElementById('exportBtn');
+    btn.classList.remove('flash');
+    void btn.offsetWidth; /* reflow to restart animation */
+    btn.classList.add('flash');
+    setTimeout(()=>btn.classList.remove('flash'),800);
+}
+document.getElementById('exportBtn').onclick=exportFavoritesJSON;
 
 /* ─── Hide/show controls on scroll ─── */
 let lastScroll=0;
