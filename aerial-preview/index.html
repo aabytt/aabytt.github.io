@@ -801,7 +801,7 @@ body{
 
     <div class="source-dropdown" id="sourceDropdown">
         <button class="filter-btn" id="sourceBtn">
-            <span class="src-prefix">Src</span><span id="sourceLabel">All</span><span id="sourceCount" class="counter-badge">0</span>
+            <span class="src-prefix">Src</span><span id="sourceLabel">All sources</span><span id="sourceCount" class="counter-badge">0</span>
         </button>
         <ul class="source-menu" id="sourceMenu"></ul>
     </div>
@@ -1231,7 +1231,7 @@ function populateSourceSelect(){
             sourceFilter=li.dataset.src;
             /* update button appearance */
             const isAll=sourceFilter==='all';
-            labelEl.textContent=isAll?'All':li.querySelector('span').textContent;
+            labelEl.textContent=isAll?'All sources':li.querySelector('span').textContent;
             countBadge.textContent=isAll?allCount:counts[sourceFilter];
             /* re-mark selected */
             menu.querySelectorAll('li').forEach(x=>x.classList.toggle('selected',x.dataset.src===sourceFilter));
@@ -1242,7 +1242,7 @@ function populateSourceSelect(){
 
     /* sync button badge */
     const isAll=sourceFilter==='all';
-    labelEl.textContent=isAll?'All':sourceFilter;
+    labelEl.textContent=isAll?'All sources':sourceFilter;
     countBadge.textContent=isAll?allCount:(counts[sourceFilter]||0);
 }
 
