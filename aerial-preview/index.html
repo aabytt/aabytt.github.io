@@ -237,16 +237,28 @@ body{
 }
 .search-clear:hover{color:#aaa;}
 .search-clear.visible{display:flex;}
-/* make room for clear button when visible */
-.search-box input{padding-right:1.6rem;}
+/* make room for clear button only when visible */
+.search-box:has(.search-clear.visible) input{padding-right:1.6rem;}
 
 @media(max-width:600px){
     .controls{padding:.6rem .8rem;gap:.5rem;flex-wrap:wrap;}
-    /* search + lang on ONE line, 55/45 split */
+    /* row 1: search + lang fill full width */
     .search-box{flex:0 0 calc(55% - .25rem);min-width:0;}
     .language-selector{flex:0 0 calc(45% - .25rem);min-width:0;}
-    .source-dropdown{flex:0 0 auto;}
-    .filter-btn{flex:0 0 auto;}
+    /* row 2: all three items share 100% width, never wrap */
+    /* fav + export are fixed ~40px each + gap, source gets the rest */
+    .source-dropdown{flex:1 1 0;min-width:0;}
+    #sourceBtn{width:100%;overflow:hidden;white-space:nowrap;}
+    #sourceBtn .counter-badge{flex-shrink:0;}
+    #sourceLabel{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        flex:1 1 0;
+        min-width:0;
+    }
+    #favoritesFilter{flex:0 0 40px;}
+    #exportBtn{flex:0 0 40px;}
 }
 
 /* ─── No-image stub ─── */
