@@ -29,6 +29,7 @@ body{
     font-family:'Segoe UI Light',sans-serif;
     font-weight:300;
     background:var(--bg-primary);
+    background:var(--bg-primary);
     color:var(--text-primary);
 }
 
@@ -288,6 +289,34 @@ body{
     z-index:0;
 }
 @media(max-width:600px){.gallery{margin-top:110px;}}
+
+/* ─── Skeletons ─── */
+@keyframes skeletonPulse {
+    0% { opacity: .6; }
+    50% { opacity: 1; }
+    100% { opacity: .6; }
+}
+
+.skeleton-card {
+    background:#111;
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    animation:skeletonPulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-thumb {
+    width:100%;
+    aspect-ratio:16/9;
+    background:#1a1a1a;
+}
+
+.skeleton-text {
+    height:14px;
+    margin:10px;
+    background:#1a1a1a;
+    border-radius:4px;
+}
 
 /* Card fade-in + stagger */
 @keyframes cardReveal {
@@ -914,6 +943,9 @@ function initLang(){
 /* ─── Data ─── */
 async function loadData(lang){
     localStorage.setItem('aerial-lang',lang);
+
+    renderSkeletons(); // 👈 ADD THIS
+
     const [v,s]=await Promise.all([
         fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/videos.json`),
         fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/${lang}.json`)
@@ -996,12 +1028,20 @@ function openModal(v){
         ['720p','url-720-SDR']
     ].filter(q=>v[q[1]]);
 
-    function set(q){
-        vid.src=v[q[1]];
-        vid.play();
-        document.querySelectorAll('.quality-btn')
-            .forEach(b=>b.classList.toggle('active',b.dataset.key===q[1]));
-    }
+	function set(q){
+		const prevTime = vid.currentTime || 0;
+		const wasPlaying = !vid.paused;
+
+		vid.src = v[q[1]];
+
+		vid.onloadedmetadata = () => {
+			vid.currentTime = Math.min(prevTime, vid.duration || prevTime);
+			if (wasPlaying) vid.play();
+		};
+
+		document.querySelectorAll('.quality-btn')
+			.forEach(b=>b.classList.toggle('active',b.dataset.key===q[1]));
+	}
 
     const qDiv=document.getElementById('qualitySelector');
     qDiv.innerHTML=qualities.map(q=>`
@@ -1329,6 +1369,17 @@ window.addEventListener('scroll',()=>{
     document.querySelector('.controls').classList.toggle('hidden',cur>lastScroll&&cur>60);
     lastScroll=cur;
 },{passive:true});
+
+function renderSkeletons(count = 12){
+    const g = document.getElementById('gallery');
+    g.innerHTML = Array.from({length: count}).map(() => `
+        <div class="skeleton-card">
+            <div class="skeleton-thumb"></div>
+            <div class="skeleton-text" style="width:70%"></div>
+            <div class="skeleton-text" style="width:40%"></div>
+        </div>
+    `).join('');
+}
 
 /* ─── Init ─── */
 initLang();
