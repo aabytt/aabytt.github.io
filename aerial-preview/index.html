@@ -29,7 +29,6 @@ body{
     font-family:'Segoe UI Light',sans-serif;
     font-weight:300;
     background:var(--bg-primary);
-    background:var(--bg-primary);
     color:var(--text-primary);
 }
 
@@ -113,8 +112,8 @@ body{
 }
 .language-selector:focus{border-color:#555;}
 
-/* ── Filter / source button ── */
-.filter-btn{
+/* ── Shared base for filter + export buttons ── */
+.icon-btn{
     height:40px;
     padding:0 .9rem;
     border-radius:6px;
@@ -132,29 +131,12 @@ body{
     transition:background .2s,color .2s,border-color .2s;
     white-space:nowrap;
 }
-.filter-btn:hover{border-color:#555;color:#ddd;}
+.icon-btn:hover{border-color:#555;color:#ddd;}
+
+/* ── Filter / source button ── */
 .filter-btn.active{background:#fff;color:#000;border-color:#fff;}
 
 /* ── Export button ── */
-.export-btn{
-    height:40px;
-    padding:0 .9rem;
-    border-radius:6px;
-    background:#111;
-    border:1px solid var(--border);
-    color:#aaa;
-    cursor:pointer;
-    font-family:'Segoe UI Light',sans-serif;
-    font-weight:300;
-    font-size:.95rem;
-    letter-spacing:.04em;
-    display:flex;
-    align-items:center;
-    gap:.4rem;
-    transition:background .2s,color .2s,border-color .2s;
-    white-space:nowrap;
-}
-.export-btn:hover{border-color:#555;color:#ddd;}
 .export-btn:disabled{opacity:.35;cursor:default;pointer-events:none;}
 @keyframes exportFlash{
     0%{background:#fff;color:#000;border-color:#fff;}
@@ -199,7 +181,6 @@ body{
     max-height:320px;
     overflow-y:auto;
     scrollbar-width:thin;
-    overflow:hidden;
 }
 .source-dropdown.open .source-menu{display:block;}
 .source-menu li{
@@ -261,6 +242,22 @@ body{
     #favoritesFilter{flex:0 0 40px;}
     #exportBtn{flex:0 0 40px;}
 }
+
+/* ─── Empty state ─── */
+.empty-state{
+    grid-column:1/-1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:.75rem;
+    padding:4rem 1rem;
+    color:#444;
+    text-align:center;
+    user-select:none;
+}
+.empty-state svg{opacity:.3;}
+.empty-state p{font-size:.9rem;letter-spacing:.06em;text-transform:uppercase;}
 
 /* ─── No-image stub ─── */
 .no-preview{
@@ -829,18 +826,18 @@ body{
     <select id="languageSelect" class="language-selector"></select>
 
     <div class="source-dropdown" id="sourceDropdown">
-        <button class="filter-btn" id="sourceBtn">
+        <button class="filter-btn icon-btn" id="sourceBtn">
             <span class="src-prefix">Src</span><span id="sourceLabel">All sources</span><span id="sourceCount" class="counter-badge">0</span>
         </button>
         <ul class="source-menu" id="sourceMenu"></ul>
     </div>
 
-    <button class="filter-btn" id="favoritesFilter">
+    <button class="filter-btn icon-btn" id="favoritesFilter">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
         <span id="favoritesCount" class="counter-badge" style="display:none;"></span>
     </button>
 
-    <button class="export-btn" id="exportBtn" title="Export filtered favorites as favorites.json">
+    <button class="export-btn icon-btn" id="exportBtn" title="Export filtered favorites as favorites.json" aria-label="Export favorites">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     </button>
 </div>
@@ -943,19 +940,27 @@ function initLang(){
 /* ─── Data ─── */
 async function loadData(lang){
     localStorage.setItem('aerial-lang',lang);
-
-    renderSkeletons(); // 👈 ADD THIS
-
-    const [v,s]=await Promise.all([
-        fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/videos.json`),
-        fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/${lang}.json`)
-    ]);
-    videosData=(await v.json()).assets||[];
-    stringsData=(await s.json()).strings||{};
-    videoMap={};
-    videosData.forEach(v=>videoMap[v.id]=v);
-    updateStats();
-    render();
+    renderSkeletons();
+    try{
+        const [v,s]=await Promise.all([
+            fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/videos.json`),
+            fetch(`https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/${lang}.json`)
+        ]);
+        if(!v.ok||!s.ok) throw new Error('Network response not ok');
+        videosData=(await v.json()).assets||[];
+        stringsData=(await s.json()).strings||{};
+        videoMap={};
+        videosData.forEach(v=>videoMap[v.id]=v);
+        updateStats();
+        render();
+    }catch(err){
+        console.error('Failed to load data:',err);
+        const g=document.getElementById('gallery');
+        g.innerHTML=`<div class="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <p>Could not load collection.<br>Check your connection and try again.</p>
+        </div>`;
+    }
 }
 
 function name(v){return stringsData[v.localizedNameKey]||v.localizedNameKey;}
@@ -970,22 +975,33 @@ function render(){
     });
 
     const g=document.getElementById('gallery');
-    g.innerHTML=list.map(v=>`
+
+    if(!list.length){
+        g.innerHTML=`<div class="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+            <p>No results found</p>
+        </div>`;
+        return;
+    }
+
+    g.innerHTML=list.map(v=>{
+        const poiCount=Object.keys(v.pointsOfInterest||{}).length;
+        return `
     <div class="video-card" data-id="${v.id}">
         <div class="video-preview-container">
             <img src="${v.previewImage||''}" class="video-preview" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'no-preview',innerHTML:'<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.2\\'><rect x=\\'3\\' y=\\'3\\' width=\\'18\\' height=\\'18\\' rx=\\'2\\'/><circle cx=\\'8.5\\' cy=\\'8.5\\' r=\\'1.5\\'/><polyline points=\\'21 15 16 10 5 21\\'/></svg><span>No preview</span>'}))">
             <button class="favorite-btn${favorites.includes(v.id)?' is-fav':''}">${favorites.includes(v.id)?'♥':'♡'}</button>
-            <div class="poi-badge">${Object.keys(v.pointsOfInterest||{}).length} POI</div>
+            ${poiCount>0?`<div class="poi-badge">${poiCount} POI</div>`:''}
             <div class="bottom-overlay"><h3>${name(v)}</h3></div>
         </div>
-    </div>`).join('');
+    </div>`;
+    }).join('');
 
-    /* Stagger reveal */
+    /* Stagger reveal — double-rAF ensures browser registers opacity:0 before animating */
     const cards=g.querySelectorAll('.video-card');
     cards.forEach((card,i)=>{
         card.style.animationDelay=`${Math.min(i*45, 600)}ms`;
-        /* Use rAF so browser registers initial opacity:0 first */
-        requestAnimationFrame(()=>card.classList.add('revealed'));
+        requestAnimationFrame(()=>requestAnimationFrame(()=>card.classList.add('revealed')));
     });
 }
 
@@ -1028,20 +1044,17 @@ function openModal(v){
         ['720p','url-720-SDR']
     ].filter(q=>v[q[1]]);
 
-	function set(q){
-		const prevTime = vid.currentTime || 0;
-		const wasPlaying = !vid.paused;
-
-		vid.src = v[q[1]];
-
-		vid.onloadedmetadata = () => {
-			vid.currentTime = Math.min(prevTime, vid.duration || prevTime);
-			if (wasPlaying) vid.play();
-		};
-
-		document.querySelectorAll('.quality-btn')
-			.forEach(b=>b.classList.toggle('active',b.dataset.key===q[1]));
-	}
+    function set(q){
+        const prevTime=vid.currentTime||0;
+        const wasPlaying=!vid.paused;
+        vid.src=v[q[1]];
+        vid.addEventListener('loadedmetadata',()=>{
+            vid.currentTime=Math.min(prevTime,vid.duration||prevTime);
+            if(wasPlaying) vid.play();
+        },{once:true});
+        document.querySelectorAll('.quality-btn')
+            .forEach(b=>b.classList.toggle('active',b.dataset.key===q[1]));
+    }
 
     const qDiv=document.getElementById('qualitySelector');
     qDiv.innerHTML=qualities.map(q=>`
@@ -1050,10 +1063,10 @@ function openModal(v){
     qDiv.querySelectorAll('button').forEach(b=>{
         b.onclick=()=>set(qualities.find(x=>x[1]===b.dataset.key));
     });
+    /* Default to lowest quality to save bandwidth */
     set(qualities[qualities.length-1]);
 
     requestAnimationFrame(()=>{
-        const qDiv=document.getElementById('qualitySelector');
         const active=qDiv.querySelector('.quality-btn.active');
         if(!active)return;
         qDiv.scrollLeft=qDiv.scrollWidth;
@@ -1124,7 +1137,7 @@ function buildTimeline(pois, vid){
 
     if(vid.readyState>=1){placeMarkers();}
     else{
-        vid.onloadedmetadata=()=>placeMarkers();
+        vid.addEventListener('loadedmetadata',placeMarkers,{once:true});
     }
 
     /* Click on track to seek */
