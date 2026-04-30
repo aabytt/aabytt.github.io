@@ -308,13 +308,6 @@ body{
     background:#1a1a1a;
 }
 
-.skeleton-text {
-    height:14px;
-    margin:10px;
-    background:#1a1a1a;
-    border-radius:4px;
-}
-
 /* Card fade-in + stagger */
 @keyframes cardReveal {
     from {
@@ -1383,13 +1376,11 @@ window.addEventListener('scroll',()=>{
     lastScroll=cur;
 },{passive:true});
 
-function renderSkeletons(count = 12){
+function renderSkeletons(count = 35){
     const g = document.getElementById('gallery');
     g.innerHTML = Array.from({length: count}).map(() => `
         <div class="skeleton-card">
             <div class="skeleton-thumb"></div>
-            <div class="skeleton-text" style="width:70%"></div>
-            <div class="skeleton-text" style="width:40%"></div>
         </div>
     `).join('');
 }
