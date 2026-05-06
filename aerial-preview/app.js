@@ -18,8 +18,8 @@
 ═══════════════════════════════════════════ */
 
 const CONFIG = {
-  videosJsonPath: 'videos.json',
-  localesPath:    'locales/',
+  videosJsonPath: 'https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/videos.json',
+  localesPath:    'https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/',
   defaultLocale:  'en-US',
   defaultQuality: 'url-1080-SDR',
   // Quality fallback order (from best to most compatible)
