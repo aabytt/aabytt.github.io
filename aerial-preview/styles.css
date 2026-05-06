@@ -1,0 +1,578 @@
+/* ─────────────────────────────────────────────
+   AERIAL SCREENSAVER — styles.css
+   Aesthetic: cinematic editorial, ultra-refined
+   Fonts: Cormorant Garamond (display) + Josefin Sans (UI)
+───────────────────────────────────────────── */
+
+:root {
+  --white:      #ffffff;
+  --white-80:   rgba(255,255,255,0.80);
+  --white-50:   rgba(255,255,255,0.50);
+  --white-25:   rgba(255,255,255,0.25);
+  --white-10:   rgba(255,255,255,0.10);
+  --black:      #000000;
+  --black-80:   rgba(0,0,0,0.80);
+  --black-60:   rgba(0,0,0,0.60);
+  --black-20:   rgba(0,0,0,0.20);
+
+  --modal-bg:   rgba(12,12,14,0.92);
+  --modal-border: rgba(255,255,255,0.08);
+  --accent:     rgba(255,255,255,0.70);
+
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-ui:      'Josefin Sans', sans-serif;
+  --font-active:  'Josefin Sans', sans-serif;  /* runtime-switchable font for all OSD + UI */
+
+  --fade-duration: 3000ms;
+  --overlay-padding: 48px;
+
+  /* OSD opacity — controlled independently per group (0.0–1.0) */
+  --osd-title-opacity: 0.80;   /* title */
+  --osd-poi-opacity:   0.80;   /* POI subtitle */
+  --osd-clock-opacity: 0.80;   /* clock + date */
+
+  /* OSD size scales — multiplied against clamp() base sizes */
+  --title-scale: 1;
+  --poi-scale:   1;
+  --clock-scale: 1;
+}
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #000;
+  cursor: none; /* full screensaver feel */
+}
+
+/* Show cursor when settings is open */
+body.settings-open { cursor: default; }
+
+/* ── VIDEO LAYER ── */
+#video-container {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+.aerial-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--fade-duration) ease-in-out;
+  /* GPU hint */
+  will-change: opacity;
+}
+
+.aerial-video.active { opacity: 1; }
+
+/* ── VIGNETTE ── */
+#vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    /* bottom gradient for text legibility */
+    linear-gradient(
+      to top,
+      rgba(0,0,0,0.65) 0%,
+      rgba(0,0,0,0.20) 30%,
+      transparent 60%
+    ),
+    /* top fade */
+    linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.30) 0%,
+      transparent 25%
+    );
+}
+
+/* ── OSD OVERLAYS ──
+   Each overlay group (#overlay-left = title+POI, #overlay-right = clock+date)
+   is independently positioned via data-title-corner / data-clock-corner on <html>.
+   Values: top-left | top-right | bottom-left | bottom-right
+──────────────────────────────────────────── */
+
+#overlay-left,
+#overlay-right {
+  position: fixed;
+  z-index: 10;
+  pointer-events: none;
+  max-width: 55vw;
+}
+
+/* ── TITLE+POI corners ── */
+:root[data-title-corner="bottom-left"]  #overlay-left { bottom: var(--overlay-padding); left:  var(--overlay-padding); text-align: left;  }
+:root[data-title-corner="bottom-right"] #overlay-left { bottom: var(--overlay-padding); right: var(--overlay-padding); text-align: right; left: unset; }
+:root[data-title-corner="top-left"]     #overlay-left { top:    var(--overlay-padding); left:  var(--overlay-padding); text-align: left;  }
+:root[data-title-corner="top-right"]    #overlay-left { top:    var(--overlay-padding); right: var(--overlay-padding); text-align: right; left: unset; }
+
+/* ── CLOCK+DATE corners ── */
+:root[data-clock-corner="bottom-left"]  #overlay-right { bottom: var(--overlay-padding); left:  var(--overlay-padding); text-align: left;  right: unset; }
+:root[data-clock-corner="bottom-right"] #overlay-right { bottom: var(--overlay-padding); right: var(--overlay-padding); text-align: right; }
+:root[data-clock-corner="top-left"]     #overlay-right { top:    var(--overlay-padding); left:  var(--overlay-padding); text-align: left;  right: unset; }
+:root[data-clock-corner="top-right"]    #overlay-right { top:    var(--overlay-padding); right: var(--overlay-padding); text-align: right; }
+
+/* Mirror clock text-align into its children */
+#overlay-right #clock,
+#overlay-right #dateline { text-align: inherit; }
+
+
+/* Video title */
+#video-title {
+  font-family: var(--font-active);
+  font-size: calc(clamp(1.4rem, 3vw, 2.4rem) * var(--title-scale));
+  font-weight: 300;
+  font-style: italic;
+  color: var(--white-80);
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  text-shadow: 0 2px 24px rgba(0,0,0,0.6);
+  opacity: var(--osd-title-opacity);
+  transition: opacity 600ms ease;
+}
+
+#poi-text {
+  font-family: var(--font-active);
+  font-size: calc(clamp(0.75rem, 1.3vw, 1.1rem) * var(--poi-scale));
+  font-weight: 300;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--white-50);
+  margin-bottom: 10px;
+  min-height: 1.2em;
+  opacity: var(--osd-poi-opacity);
+  transition: opacity 600ms ease, transform 600ms ease;
+  transform: translateY(0);
+  animation: none;
+}
+
+/* poi-enter: slide up into place — opacity is handled by transition on the element,
+   NOT by the keyframe, so --osd-poi-opacity is never overridden */
+#poi-text.poi-enter {
+  animation: poiSlideIn 600ms ease forwards;
+}
+
+@keyframes poiSlideIn {
+  from { transform: translateY(6px); }
+  to   { transform: translateY(0); }
+}
+
+/* Clock */
+#clock {
+  font-family: var(--font-active);
+  font-size: calc(clamp(2.2rem, 5vw, 4rem) * var(--clock-scale));
+  font-weight: 300;
+  letter-spacing: 0.03em;
+  color: var(--white-80);
+  text-shadow: 0 2px 24px rgba(0,0,0,0.4);
+  line-height: 1;
+  opacity: var(--osd-clock-opacity);
+  transition: opacity 100ms;
+}
+
+/* Date */
+#dateline {
+  font-family: var(--font-active);
+  font-size: calc(clamp(0.65rem, 1vw, 0.85rem) * var(--clock-scale));
+  font-weight: 300;
+  font-style: italic;
+  letter-spacing: 0.08em;
+  color: var(--white-50);
+  margin-top: 8px;
+  text-align: right;
+  opacity: var(--osd-clock-opacity);
+}
+
+/* ── DEBUG OVERLAY ── */
+#debug-overlay {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 50;
+  background: rgba(0,0,0,0.75);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 4px;
+  padding: 16px 20px;
+  min-width: 340px;
+  backdrop-filter: blur(8px);
+}
+
+.debug-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.debug-label {
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.1em;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.debug-row span:last-child {
+  color: rgba(255,255,255,0.80);
+  word-break: break-all;
+}
+
+.dbg-url {
+  font-size: 0.6rem !important;
+  opacity: 0.6;
+}
+
+/* ── SETTINGS MODAL ── */
+#settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0,0,0,0.50);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  opacity: 1;
+  transition: opacity 300ms ease;
+}
+
+#settings-overlay.hidden {
+  display: none;
+}
+
+#settings-modal {
+  background: var(--modal-bg);
+  border: 1px solid var(--modal-border);
+  border-radius: 12px;
+  padding: 0;
+  width: min(480px, 90vw);
+  overflow: hidden;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.8);
+  animation: modalIn 250ms cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.92) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+#settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--modal-border);
+}
+
+#settings-title {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 300;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--white-50);
+}
+
+#settings-close {
+  background: none;
+  border: none;
+  color: var(--white-50);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 150ms, background 150ms;
+  font-family: var(--font-ui);
+  line-height: 1;
+}
+#settings-close:hover { color: var(--white); background: var(--white-10); }
+
+.settings-section {
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--modal-border);
+}
+.settings-section:last-of-type { border-bottom: none; }
+
+.settings-section-title {
+  font-family: var(--font-ui);
+  font-size: 0.58rem;
+  font-weight: 300;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--white-25);
+  margin-bottom: 16px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.settings-row:last-child { margin-bottom: 0; }
+
+.settings-row label:first-child {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 300;
+  color: var(--white-80);
+  letter-spacing: 0.04em;
+}
+
+/* Select dropdowns */
+select {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: var(--white-80);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 300;
+  padding: 7px 28px 7px 12px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.4)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 150ms;
+  min-width: 160px;
+}
+select:hover  { border-color: rgba(255,255,255,0.25); }
+select:focus  { outline: none; border-color: rgba(255,255,255,0.40); }
+select option { background: #1a1a1f; color: #fff; }
+
+/* Toggle switch */
+.toggle-wrap {
+  position: relative;
+  width: 44px;
+  height: 24px;
+}
+.toggle-wrap input[type="checkbox"] {
+  opacity: 0;
+  width: 0; height: 0;
+  position: absolute;
+}
+.toggle-label {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.15);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 200ms;
+}
+.toggle-label::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--white-50);
+  transition: transform 200ms, background 200ms;
+}
+.toggle-wrap input:checked + .toggle-label {
+  background: rgba(255,255,255,0.35);
+}
+.toggle-wrap input:checked + .toggle-label::after {
+  transform: translateX(20px);
+  background: var(--white);
+}
+
+#settings-hint {
+  padding: 14px 28px;
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--white-25);
+  border-top: 1px solid var(--modal-border);
+  text-align: center;
+}
+
+kbd {
+  font-family: monospace;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.7em;
+}
+
+/* ── SKIP RIPPLE ── */
+#skip-ripple {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.5);
+  z-index: 20;
+  pointer-events: none;
+}
+#skip-ripple.animate {
+  animation: ripple 500ms ease-out forwards;
+}
+@keyframes ripple {
+  from { transform: translate(-50%,-50%) scale(0); opacity: 1; }
+  to   { transform: translate(-50%,-50%) scale(3); opacity: 0; }
+}
+
+/* ── OSD OPACITY SLIDER ── */
+.slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider-wrap span {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 300;
+  color: var(--white-50);
+  min-width: 36px;
+  text-align: right;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 130px;
+  height: 2px;
+  background: rgba(255,255,255,0.20);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--white);
+  cursor: pointer;
+  transition: transform 150ms;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 50%;
+  background: var(--white);
+  cursor: pointer;
+}
+
+/* ── STARTUP HINT ── */
+#start-hint {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  font-weight: 300;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.38);
+  background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+  padding: 7px 18px;
+  pointer-events: none;
+  white-space: nowrap;
+  /* fade in then out */
+  animation: hintLifecycle 5s ease forwards;
+}
+
+#start-hint span {
+  color: rgba(255,255,255,0.65);
+}
+
+@keyframes hintLifecycle {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+#start-hint.hidden { display: none !important; }
+
+/* ── STALL BLACKOUT ── */
+#stall-blackout {
+  position: fixed;
+  inset: 0;
+  z-index: 15;          /* above video AND overlays — full blank screen */
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 800ms ease-in-out;
+}
+#stall-blackout.fading  { opacity: 1; transition: opacity 800ms ease-in-out; }
+#stall-blackout.lifting { opacity: 0; transition: opacity 2000ms ease-in-out; }
+
+/* ── UTILITY ── */
+.hidden { display: none !important; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  :root {
+    --overlay-padding: 24px;
+  }
+  #overlay-left { max-width: 80vw; }
+  #debug-overlay { min-width: unset; max-width: 90vw; }
+}
+
+/* ── D-PAD / REMOTE FOCUS STYLES ──
+   High-visibility ring so TV viewers can track focus
+────────────────────────────────────────────── */
+#settings-modal select:focus,
+#settings-modal input[type="range"]:focus,
+#settings-modal input[type="checkbox"]:focus + .toggle-label,
+#settings-modal button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.80);
+  border-radius: 6px;
+}
+#settings-modal input[type="range"]:focus {
+  background: rgba(255,255,255,0.35);
+}
+
+/* ── FONT PREVIEW ── */
+#font-preview {
+  font-size: 0.95rem;
+  font-weight: 300;
+  color: var(--white-50);
+  letter-spacing: 0.06em;
+  padding: 6px 0 2px;
+  transition: font-family 200ms;
+  font-style: italic;
+}
+
+/* ── POI ORDER — data attribute on <html> ──
+   [data-poi-order="above"]: poi is first child (above title) — default DOM order
+   [data-poi-order="below"]: swap so title appears above poi
+────────────────────────────────────────────── */
+#overlay-left {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Default (below): poi stays below title — reverse the DOM order visually */
+[data-poi-order="below"] #overlay-left {
+  flex-direction: column-reverse;
+}
+
+/* above: poi above title — normal DOM order (poi is first in DOM) */
+[data-poi-order="above"] #overlay-left {
+  flex-direction: column;
+}

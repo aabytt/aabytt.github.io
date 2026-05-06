@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aerial Screensaver</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Google Fonts: editorial elegance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Josefin+Sans:wght@100;300&family=Playfair+Display:ital,wght@0,300;1,300&family=DM+Serif+Display:ital@0;1&family=Outfit:wght@200;300&family=Space+Grotesk:wght@300;400&family=Lato:ital,wght@0,300;1,300&family=Raleway:ital,wght@0,200;0,300;1,200&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ── VIDEO LAYER ── -->
+  <!-- Two video elements for crossfade transitions -->
+  <div id="video-container">
+    <video id="video-a" class="aerial-video active" autoplay muted playsinline></video>
+    <video id="video-b" class="aerial-video"        autoplay muted playsinline></video>
+  </div>
+
+  <!-- ── GRADIENT VIGNETTE ── -->
+  <div id="vignette"></div>
+
+  <!-- ── BOTTOM-LEFT GROUP: title + POI ── -->
+  <div id="overlay-left">
+    <div id="poi-text"></div>
+    <div id="video-title"></div>
+  </div>
+
+  <!-- ── BOTTOM-RIGHT GROUP: clock + date ── -->
+  <div id="overlay-right">
+    <div id="clock"></div>
+    <div id="dateline"></div>
+  </div>
+
+  <!-- ── DEBUG OVERLAY ── -->
+  <div id="debug-overlay" class="hidden">
+    <div class="debug-row"><span class="debug-label">TOTAL VIDEOS</span><span id="dbg-total">—</span></div>
+    <div class="debug-row"><span class="debug-label">VIDEO ID</span><span id="dbg-id">—</span></div>
+    <div class="debug-row"><span class="debug-label">QUALITY</span><span id="dbg-quality">—</span></div>
+    <div class="debug-row"><span class="debug-label">PROGRESS</span><span id="dbg-progress">—</span></div>
+    <div class="debug-row"><span class="debug-label">BUFFERED</span><span id="dbg-buffer">—</span></div>
+    <div class="debug-row"><span class="debug-label">STATUS</span><span id="dbg-status">—</span></div>
+    <div class="debug-row"><span class="debug-label">URL</span><span id="dbg-url" class="dbg-url">—</span></div>
+  </div>
+
+  <!-- ── SETTINGS MODAL ── -->
+  <div id="settings-overlay" class="hidden">
+    <div id="settings-modal">
+      <div id="settings-header">
+        <span id="settings-title">Settings</span>
+        <button id="settings-close" title="Close">✕</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Video Quality</div>
+        <div class="settings-row">
+          <label for="quality-select">Preferred Quality</label>
+          <select id="quality-select">
+            <option value="url-4K-HDR">4K HDR</option>
+            <option value="url-4K-SDR">4K SDR</option>
+            <option value="url-1080-HDR">1080p HDR</option>
+            <option value="url-1080-SDR" selected>1080p SDR</option>
+            <option value="url-1080-H264">1080p H.264</option>
+            <option value="url-4K-SDR-240FPS">4K SDR 240fps</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label for="fallback-toggle">Fallback to lower quality</label>
+          <div class="toggle-wrap">
+            <input type="checkbox" id="fallback-toggle" checked />
+            <label class="toggle-label" for="fallback-toggle"></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Language</div>
+        <div class="settings-row">
+          <label for="locale-select">Interface Language</label>
+          <select id="locale-select">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Display</div>
+        <div class="settings-row">
+          <label for="title-corner-select">Title &amp; POI Position</label>
+          <select id="title-corner-select">
+            <option value="top-left">Top Left</option>
+            <option value="top-right">Top Right</option>
+            <option value="bottom-left" selected>Bottom Left</option>
+            <option value="bottom-right">Bottom Right</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label for="clock-corner-select">Clock Position</label>
+          <select id="clock-corner-select">
+            <option value="top-left">Top Left</option>
+            <option value="top-right">Top Right</option>
+            <option value="bottom-left">Bottom Left</option>
+            <option value="bottom-right" selected>Bottom Right</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label for="poi-above-title-toggle">POI above title</label>
+          <div class="toggle-wrap">
+            <input type="checkbox" id="poi-above-title-toggle" />
+            <label class="toggle-label" for="poi-above-title-toggle"></label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label for="osd-title-opacity">Title Opacity</label>
+          <div class="slider-wrap">
+            <input type="range" id="osd-title-opacity" min="10" max="100" step="5" value="80" />
+            <span id="osd-title-opacity-value">80%</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label for="osd-poi-opacity">POI Opacity</label>
+          <div class="slider-wrap">
+            <input type="range" id="osd-poi-opacity" min="10" max="100" step="5" value="80" />
+            <span id="osd-poi-opacity-value">80%</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label for="osd-clock-opacity">Clock Opacity</label>
+          <div class="slider-wrap">
+            <input type="range" id="osd-clock-opacity" min="10" max="100" step="5" value="80" />
+            <span id="osd-clock-opacity-value">80%</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label for="title-size">Title Size</label>
+          <div class="slider-wrap">
+            <input type="range" id="title-size" min="60" max="160" step="5" value="100" />
+            <span id="title-size-value">100%</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label for="poi-size">POI Size</label>
+          <div class="slider-wrap">
+            <input type="range" id="poi-size" min="60" max="160" step="5" value="100" />
+            <span id="poi-size-value">100%</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label for="clock-size">Clock Size</label>
+          <div class="slider-wrap">
+            <input type="range" id="clock-size" min="60" max="160" step="5" value="100" />
+            <span id="clock-size-value">100%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Typography</div>
+        <div class="settings-row">
+          <label for="font-select">Display Font</label>
+          <select id="font-select">
+            <option value="Josefin Sans">Josefin Sans</option>
+            <option value="Cormorant Garamond">Cormorant Garamond</option>
+            <option value="Playfair Display">Playfair Display</option>
+            <option value="DM Serif Display">DM Serif Display</option>
+            <option value="Outfit">Outfit</option>
+            <option value="Space Grotesk">Space Grotesk</option>
+            <option value="Lato">Lato</option>
+            <option value="Raleway">Raleway</option>
+          </select>
+        </div>
+        <div id="font-preview">The quick brown fox — 12:34 · Wednesday</div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Developer</div>
+        <div class="settings-row">
+          <label for="hint-toggle">Show startup hint</label>
+          <div class="toggle-wrap">
+            <input type="checkbox" id="hint-toggle" checked />
+            <label class="toggle-label" for="hint-toggle"></label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label for="debug-toggle">Debug Overlay</label>
+          <div class="toggle-wrap">
+            <input type="checkbox" id="debug-toggle" />
+            <label class="toggle-label" for="debug-toggle"></label>
+          </div>
+        </div>
+      </div>
+
+      <div id="settings-hint">Press <kbd>Esc</kbd> or click outside to close &nbsp;·&nbsp; <kbd>↑↓</kbd> navigate &nbsp;·&nbsp; <kbd>←→</kbd> adjust</div>
+    </div>
+  </div>
+
+  <!-- ── STARTUP HINT ── -->
+  <div id="start-hint">
+    <span>click</span> next video &nbsp;·&nbsp; <span>long press</span> settings
+  </div>
+
+  <!-- ── STALL BLACKOUT ── prevents static image burn-in when video stalls -->
+  <div id="stall-blackout"></div>
+
+  <!-- ── SKIP RIPPLE ── -->
+  <div id="skip-ripple" class="hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
