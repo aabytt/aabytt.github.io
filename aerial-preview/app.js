@@ -11,15 +11,30 @@
  *  - SettingsManager: handles modal open/close, persists prefs to localStorage
  *  - DebugManager   : updates debug overlay
  *  - InputManager   : keyboard + click, short vs long press
+ *
+ * Chromium 79+ compatibility notes:
+ *  - No optional chaining (?.) — removed (arrived Chrome 80)
+ *  - No nullish coalescing (??) — removed (arrived Chrome 80)
+ *  - No :has() CSS selector — removed (arrived Chrome 105)
+ *  - No inset CSS shorthand — removed (unreliable pre-Chrome 87)
+ *  - No flex `gap` — removed (arrived Chrome 84); use margin-based spacing in CSS
+ *  - backdrop-filter requires -webkit- prefix on Cr79–Cr87 (see styles.css)
+ *  - clamp() / min() / max() are fine — arrived exactly in Chrome 79
+ *
+ * Buffering strategy — NO OVERLAP:
+ *  The inactive <video> element's src is cleared (and load() called) BEFORE
+ *  the new URL is assigned, so the browser never buffers two streams at once.
+ *  The outgoing element is also fully torn down before we begin loading the
+ *  next video, not after the crossfade timeout.
  */
 
 /* ═══════════════════════════════════════════
    CONFIG & CONSTANTS
 ═══════════════════════════════════════════ */
 
-const CONFIG = {
-  videosJsonPath: 'https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/videos.json',
-  localesPath:    'https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/',
+var CONFIG = {
+  videosJsonPath: 'videos.json',
+  localesPath:    'locales/',
   defaultLocale:  'en-US',
   defaultQuality: 'url-1080-SDR',
   // Quality fallback order (from best to most compatible)
@@ -41,22 +56,26 @@ const CONFIG = {
     'tr-TR','uk-UA','vi-VN','zh-CN','zh-HK','zh-TW',
   ],
   longPressMs:   800,   // ms to distinguish long-press (settings) vs short-press (skip)
-  crossfadeMs:   3000,  // longer crossfade — gives time for next video to buffer after current ends
+  crossfadeMs:   6000,  // crossfade duration — must match --fade-duration in CSS
   stallFadeMs:   5000,  // ms of stall before fading to black
   stallSkipMs:   15000, // ms of stall before skipping to next video
+  // Blackout transition: screen fades to black before loading/showing next video
+  blackoutFadeOutMs: 1800,  // how long the fade-to-black takes
+  blackoutHoldMs:    400,   // how long to hold pure black before fading in
+  blackoutFadeInMs:  2400,  // how long the fade-from-black takes
 };
 
 /* ═══════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════ */
 
-const state = {
+var state = {
   allAssets:       [],
   playedIds:       new Set(),
   currentAsset:    null,
-  nextAsset:       null,        // preloaded
+  nextAsset:       null,        // reserved slot — not used for early preload
   activeVideoEl:   null,        // currently visible <video>
-  inactiveVideoEl: null,        // preloading / waiting
+  inactiveVideoEl: null,        // will receive the next video AFTER outgoing is cleared
   locale:          null,
   strings:         {},
   dateStrings:     null,   // { months: [...], daysOfWeek: [...] } if locale provides them
@@ -65,23 +84,23 @@ const state = {
     fallback:       true,
     locale:         CONFIG.defaultLocale,
     debugEnabled:   false,
-    osdTitleOpacity: 80,   // percent, 10–100 — title only
-    osdPoiOpacity:   80,   // percent, 10–100 — POI subtitle
-    osdClockOpacity: 80,   // percent, 10–100 — clock + date
+    osdTitleOpacity: 80,
+    osdPoiOpacity:   80,
+    osdClockOpacity: 80,
     osdPosition:     'bottom-split',  // legacy — kept for migration only
-    titleCorner:     'bottom-left',   // 'top-left'|'top-right'|'bottom-left'|'bottom-right'
-    clockCorner:     'bottom-right',  // must differ from titleCorner
-    poiAboveTitle:   false,           // true = POI line above title, false = below (default)
-    titleSize:       100,  // percent of base size, 60–160
+    titleCorner:     'bottom-left',
+    clockCorner:     'bottom-right',
+    poiAboveTitle:   false,
+    titleSize:       100,
     poiSize:         100,
     clockSize:       100,
-    displayFont:     'Josefin Sans',  // font family for clock, title, POI, UI
-    showHint:        true,            // show startup hint overlay
+    displayFont:     'Josefin Sans',
+    showHint:        true,
   },
-  poiLastKey:      null,        // avoid re-triggering same POI
+  poiLastKey:      null,
   settingsOpen:    false,
-  transitioning:   false,   // true while a crossfade is in progress — blocks re-entry
-  pressTimer:      null,        // long-press detection
+  transitioning:   false,
+  pressTimer:      null,
   pressStart:      0,
 };
 
@@ -89,7 +108,7 @@ const state = {
    DOM REFERENCES
 ═══════════════════════════════════════════ */
 
-const dom = {
+var dom = {
   videoA:          document.getElementById('video-a'),
   videoB:          document.getElementById('video-b'),
   videoTitle:      document.getElementById('video-title'),
@@ -137,38 +156,37 @@ const dom = {
    LOCALE MANAGER
 ═══════════════════════════════════════════ */
 
-const LocaleManager = {
-  cache: {},       // stores { strings, date } per locale code
+var LocaleManager = {
+  cache: {},
 
-  /** Load a locale JSON file, caching results. */
-  async load(localeCode) {
-    if (this.cache[localeCode]) return this.cache[localeCode];
-    try {
-      const res = await fetch(`${CONFIG.localesPath}${localeCode}.json`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      // Cache both strings and optional date arrays
-      this.cache[localeCode] = {
-        strings: data.strings || {},
-        date:    data.date    || null,
-      };
-      return this.cache[localeCode];
-    } catch (err) {
-      DebugManager.log(`Locale load failed (${localeCode}): ${err.message}`);
-      // Fall back to English if not already trying English
-      if (localeCode !== CONFIG.defaultLocale) {
-        return this.load(CONFIG.defaultLocale);
-      }
-      return { strings: {}, date: null };
-    }
+  load: function(localeCode) {
+    var self = this;
+    if (self.cache[localeCode]) return Promise.resolve(self.cache[localeCode]);
+    return fetch(CONFIG.localesPath + localeCode + '.json')
+      .then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(data) {
+        self.cache[localeCode] = {
+          strings: data.strings || {},
+          date:    data.date    || null,
+        };
+        return self.cache[localeCode];
+      })
+      .catch(function(err) {
+        DebugManager.log('Locale load failed (' + localeCode + '): ' + err.message);
+        if (localeCode !== CONFIG.defaultLocale) {
+          return self.load(CONFIG.defaultLocale);
+        }
+        return { strings: {}, date: null };
+      });
   },
 
-  /** Translate a key, falling back to the key itself. */
-  t(key) {
+  t: function(key) {
     return state.strings[key] || key;
   },
 
-  // Human-readable display names for each locale code
   displayNames: {
     'ar-AE': 'العربية',
     'be-BY': 'Беларуская',
@@ -213,13 +231,12 @@ const LocaleManager = {
     'zh-TW': '中文 (台灣)',
   },
 
-  /** Populate the locale <select> in settings. */
-  populateSelect() {
+  populateSelect: function() {
     dom.localeSelect.innerHTML = '';
-    CONFIG.availableLocales.forEach(code => {
-      const opt = document.createElement('option');
+    CONFIG.availableLocales.forEach(function(code) {
+      var opt = document.createElement('option');
       opt.value = code;
-      opt.textContent = this.displayNames[code] || code;
+      opt.textContent = LocaleManager.displayNames[code] || code;
       if (code === state.prefs.locale) opt.selected = true;
       dom.localeSelect.appendChild(opt);
     });
@@ -230,51 +247,48 @@ const LocaleManager = {
    VIDEO MANAGER
 ═══════════════════════════════════════════ */
 
-const VideoManager = {
-  /** Fetch videos.json and store assets. */
-  async init() {
-    try {
-      const res = await fetch(CONFIG.videosJsonPath);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (!Array.isArray(data.assets) || data.assets.length === 0) {
-        throw new Error('No assets found in videos.json');
-      }
-      state.allAssets = data.assets;
-      DebugManager.updateTotal(state.allAssets.length);
-      DebugManager.log(`Loaded ${state.allAssets.length} videos`);
-    } catch (err) {
-      DebugManager.log(`FATAL: Could not load videos.json — ${err.message}`);
-      dom.videoTitle.textContent = 'Could not load videos.';
-      throw err;
-    }
+var VideoManager = {
+  init: function() {
+    return fetch(CONFIG.videosJsonPath)
+      .then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(data) {
+        if (!Array.isArray(data.assets) || data.assets.length === 0) {
+          throw new Error('No assets found in videos.json');
+        }
+        state.allAssets = data.assets;
+        DebugManager.updateTotal(state.allAssets.length);
+        DebugManager.log('Loaded ' + state.allAssets.length + ' videos');
+      })
+      .catch(function(err) {
+        DebugManager.log('FATAL: Could not load videos.json — ' + err.message);
+        dom.videoTitle.textContent = 'Could not load videos.';
+        throw err;
+      });
   },
 
-  /** Pick a random asset that hasn't been played this session. */
-  pickRandom() {
-    const unplayed = state.allAssets.filter(a => !state.playedIds.has(a.id));
-    // If all played, reset session history (loop)
+  pickRandom: function() {
+    var unplayed = state.allAssets.filter(function(a) {
+      return !state.playedIds.has(a.id);
+    });
     if (unplayed.length === 0) {
       state.playedIds.clear();
-      return this.pickRandom();
+      return VideoManager.pickRandom();
     }
-    const idx = Math.floor(Math.random() * unplayed.length);
-    return unplayed[idx];
+    return unplayed[Math.floor(Math.random() * unplayed.length)];
   },
 
-  /** Resolve the best available URL for the given asset + prefs. */
-  resolveUrl(asset) {
-    const preferred = state.prefs.quality;
-    // Try preferred quality first
+  resolveUrl: function(asset) {
+    var preferred = state.prefs.quality;
     if (asset[preferred]) return { url: asset[preferred], quality: preferred };
-
-    // Fallback if enabled
     if (state.prefs.fallback) {
-      for (const q of CONFIG.qualityFallback) {
+      for (var i = 0; i < CONFIG.qualityFallback.length; i++) {
+        var q = CONFIG.qualityFallback[i];
         if (asset[q]) return { url: asset[q], quality: q };
       }
     }
-    // Nothing found
     return null;
   },
 };
@@ -283,54 +297,38 @@ const VideoManager = {
    POI MANAGER
 ═══════════════════════════════════════════ */
 
-const POIManager = {
-  /** Called on video timeupdate — checks if a POI timestamp has been reached. */
-  check(asset, currentTime) {
+var POIManager = {
+  check: function(asset, currentTime) {
     if (!asset.pointsOfInterest) return;
-    const seconds = Math.floor(currentTime);
-
-    // Find the most recent POI timestamp ≤ currentTime
-    let bestTimestamp = null;
-    for (const ts of Object.keys(asset.pointsOfInterest)) {
-      const t = parseInt(ts, 10);
+    var seconds = Math.floor(currentTime);
+    var bestTimestamp = null;
+    var keys = Object.keys(asset.pointsOfInterest);
+    for (var i = 0; i < keys.length; i++) {
+      var t = parseInt(keys[i], 10);
       if (t <= seconds) {
         if (bestTimestamp === null || t > bestTimestamp) bestTimestamp = t;
       }
     }
-
     if (bestTimestamp === null) return;
-    const poiKey = asset.pointsOfInterest[bestTimestamp];
-
-    // Only trigger if it's a new POI key
+    var poiKey = asset.pointsOfInterest[bestTimestamp];
     if (poiKey === state.poiLastKey) return;
     state.poiLastKey = poiKey;
-
     this.show(LocaleManager.t(poiKey));
   },
 
-  /** Display POI text with animation. */
-  show(text) {
+  show: function(text) {
     if (!text) return;
-
-    // Reset animation class
     dom.poiText.classList.remove('poi-enter', 'poi-hidden');
     void dom.poiText.offsetWidth; // force reflow
-
-    // Momentarily zero opacity so the transition fades it in from 0 → var(--osd-poi-opacity)
-    // This avoids keyframe animations overriding the CSS variable
     dom.poiText.style.opacity = '0';
     dom.poiText.textContent = text;
     dom.poiText.classList.add('poi-enter');
-
-    // Next frame: remove inline override so the element's CSS variable-driven opacity takes over,
-    // triggering the transition
-    requestAnimationFrame(() => {
+    requestAnimationFrame(function() {
       dom.poiText.style.opacity = '';
     });
   },
 
-  /** Clear POI display. */
-  clear() {
+  clear: function() {
     dom.poiText.textContent = '';
     dom.poiText.classList.remove('poi-enter', 'poi-hidden');
     state.poiLastKey = null;
@@ -339,219 +337,401 @@ const POIManager = {
 
 /* ═══════════════════════════════════════════
    PLAYER MANAGER
+
+   NO-OVERLAP BUFFERING STRATEGY
+   ──────────────────────────────
+   At any moment only ONE network stream is active.
+
+   Timeline:
+   1. Current video plays on activeVideoEl.
+   2. Video ends (or skip triggered).
+   3. outgoing = activeVideoEl — pause it, remove src, call load() → stream stops.
+   4. Now inactiveVideoEl is completely idle (was already cleared in step 3
+      of the PREVIOUS transition, or never used).
+   5. Assign new URL to inactiveVideoEl, load(), wait for canplay.
+   6. Crossfade: play incoming, swap CSS active classes, swap state refs.
+   7. After crossfade CSS duration: clear old activeVideoEl (now inactiveVideoEl).
+
+   Overlap window = 0 ms.  Both elements are never loading simultaneously.
 ═══════════════════════════════════════════ */
 
-const PlayerManager = {
-  /** Start first video. */
-  async start() {
+var PlayerManager = {
+
+  /** Start first video — no preloading. */
+  start: function() {
     state.activeVideoEl   = dom.videoA;
     state.inactiveVideoEl = dom.videoB;
 
-    const asset = VideoManager.pickRandom();
-    await this.loadAndPlay(asset, state.activeVideoEl);
+    // Ensure inactive is completely blank before we start
+    _releaseVideo(state.inactiveVideoEl);
+
+    var asset = VideoManager.pickRandom();
     state.currentAsset = asset;
     state.playedIds.add(asset.id);
-
     this.updateTitle(asset);
     POIManager.clear();
 
-    // Do NOT preload next here — we load it lazily when current video ends
-    // This avoids simultaneous buffering that can overwhelm TV bandwidth
+    return this._loadAndPlay(asset, state.activeVideoEl);
   },
 
-  /** Load asset into a video element and play it. */
-  async loadAndPlay(asset, videoEl) {
-    const resolved = VideoManager.resolveUrl(asset);
+  /** Load asset into videoEl and play it. Returns a promise. */
+  _loadAndPlay: function(asset, videoEl) {
+    var resolved = VideoManager.resolveUrl(asset);
     if (!resolved) {
-      DebugManager.log(`No valid URL for asset ${asset.id} — skipping`);
-      return this.skip();
+      DebugManager.log('No valid URL for asset ' + asset.id + ' — skipping');
+      return PlayerManager.skip();
     }
 
-    videoEl.src = resolved.url;
+    videoEl.muted       = true;
+    videoEl.preload     = 'auto';
+    videoEl.currentTime = 0;
+    videoEl.src         = resolved.url;
     videoEl.load();
-    videoEl.currentTime = 0;  // always start from beginning, never resume cached position
 
     DebugManager.updateCurrent(asset, resolved.url, resolved.quality);
 
-    // Attempt play (browsers may block autoplay without user gesture)
-    try {
-      await videoEl.play();
-    } catch (e) {
-      DebugManager.log(`Autoplay blocked: ${e.message}`);
-    }
+    return videoEl.play().catch(function(e) {
+      DebugManager.log('Autoplay blocked: ' + e.message);
+    });
   },
 
-  /** Load next video into inactive element only after current has ended.
-   *  This avoids dual-stream buffering on bandwidth-constrained TVs.
-   *  Once enough data is ready (canplay), we crossfade.
+  /**
+   * Core transition method — BLACKOUT STRATEGY
+   *
+   * Instead of crossfading between two video elements (which shows freeze-frames
+   * when the outgoing video pauses mid-frame), we:
+   *   1. Smoothly fade the entire screen + OSD to black
+   *   2. While black: release outgoing, load incoming, wait for canplay
+   *   3. Start incoming video (still under black — no freeze frame ever visible)
+   *   4. Gently fade from black to reveal the playing incoming video + OSD
    */
-  loadAndCrossfadeNext(asset) {
-    const el = state.inactiveVideoEl;
-    el.muted   = true;
-    el.preload = 'auto';
-    el.src     = VideoManager.resolveUrl(asset)?.url || '';
-    el.currentTime = 0;
-    el.load();
-
-    const onCanPlay = () => {
-      el.removeEventListener('canplay', onCanPlay);
-      el.removeEventListener('error',   onError);
-      this.crossfadeTo(asset);
-    };
-    const onError = () => {
-      el.removeEventListener('canplay', onCanPlay);
-      el.removeEventListener('error',   onError);
-      DebugManager.log('Next video load error — picking another');
-      const fallback = VideoManager.pickRandom();
-      this.loadAndCrossfadeNext(fallback);
-    };
-
-    el.addEventListener('canplay', onCanPlay);
-    el.addEventListener('error',   onError);
-  },
-
-  /** Crossfade to a specific asset. Guards against concurrent calls. */
-  async crossfadeTo(asset) {
-    // Re-entrancy guard: ignore if a transition is already in progress
+  loadAndCrossfadeNext: function(asset) {
     if (state.transitioning) return;
     state.transitioning = true;
 
-    const incoming = state.inactiveVideoEl;
-    const outgoing = state.activeVideoEl;
+    var self     = this;
+    var incoming = state.inactiveVideoEl;
+    var outgoing = state.activeVideoEl;
 
-    // Start playing the incoming video before making it visible
-    incoming.muted = true;
-    try { await incoming.play(); } catch (e) { /* ignore autoplay policy */ }
-
-    // Swap CSS active class — triggers CSS opacity transition
-    outgoing.classList.remove('active');
-    incoming.classList.add('active');
-
-    // Swap state references immediately so all event guards are correct
-    state.activeVideoEl   = incoming;
-    state.inactiveVideoEl = outgoing;
-    state.currentAsset    = asset;
-    state.playedIds.add(asset.id);
-
-    // Reset stall tracking — blackout only lifts on first live timeupdate
-    StallManager.reset();
-
-    // Update OSD for the new video
-    this.updateTitle(asset);
-    POIManager.clear();
-    const resolvedForDebug = VideoManager.resolveUrl(asset);
-    DebugManager.updateCurrent(asset, incoming.src, resolvedForDebug?.quality || state.prefs.quality);
-
-    // After crossfade completes: tear down outgoing element, release guard
-    setTimeout(() => {
-      outgoing.pause();
-      outgoing.removeAttribute('src');
-      outgoing.load();          // resets element so no stale events linger
+    var resolved = VideoManager.resolveUrl(asset);
+    if (!resolved) {
+      DebugManager.log('No valid URL for asset ' + asset.id + ' — picking another');
       state.transitioning = false;
-    }, CONFIG.crossfadeMs + 200);
+      var fallback = VideoManager.pickRandom();
+      self.loadAndCrossfadeNext(fallback);
+      return;
+    }
+
+    // ── STEP 1: Fade screen + OSD smoothly to black ──────────────────────────
+    BlackoutManager.fadeToBlack(function() {
+
+      // ── STEP 2: Under cover of black, swap video sources ───────────────────
+      outgoing.pause();
+      _releaseVideo(outgoing);
+
+      incoming.muted       = true;
+      incoming.preload     = 'auto';
+      incoming.src         = resolved.url;
+      incoming.load();
+      incoming.currentTime = 0;
+
+      // Update all state & OSD text while hidden
+      state.currentAsset    = asset;
+      state.playedIds.add(asset.id);
+      state.activeVideoEl   = incoming;
+      state.inactiveVideoEl = outgoing;
+      StallManager.reset();
+      self.updateTitle(asset);
+      POIManager.clear();
+      DebugManager.updateCurrent(asset, resolved.url, resolved.quality);
+
+      // ── STEP 3: Wait until the new video has enough data ──────────────────
+      function onCanPlay() {
+        incoming.removeEventListener('canplay', onCanPlay);
+        incoming.removeEventListener('error',   onError);
+
+        // Swap CSS active class while still under blackout — zero freeze risk
+        outgoing.classList.remove('active');
+        incoming.classList.add('active');
+
+        // Start playback before the blackout lifts so the first frame is live
+        incoming.play().catch(function(e) {
+          DebugManager.log('Play blocked after blackout: ' + e.message);
+        });
+
+        // ── STEP 4: Lift the blackout, fade to live video + OSD ─────────────
+        BlackoutManager.fadeFromBlack(function() {
+          state.transitioning = false;
+        });
+      }
+
+      function onError() {
+        incoming.removeEventListener('canplay', onCanPlay);
+        incoming.removeEventListener('error',   onError);
+        DebugManager.log('Next video load error — picking another');
+        // Restore state so the next skip call works
+        state.activeVideoEl   = outgoing;
+        state.inactiveVideoEl = incoming;
+        state.transitioning   = false;
+        BlackoutManager.fadeFromBlack(function() {});
+        var fallback2 = VideoManager.pickRandom();
+        self.loadAndCrossfadeNext(fallback2);
+      }
+
+      incoming.addEventListener('canplay', onCanPlay);
+      incoming.addEventListener('error',   onError);
+    });
   },
 
-  /** Skip to the next video. Safe to call rapidly — guarded by state.transitioning. */
-  async skip() {
-    if (state.transitioning) return; // already mid-crossfade, ignore
+  // No longer used — blackout strategy replaced crossfade
+  _doCrossfade: function() {},
 
-    const next = state.nextAsset || VideoManager.pickRandom();
-    state.nextAsset = null; // clear immediately so no other path reuses it
-
-    // Use loadAndCrossfadeNext so the next video buffers before crossfading
+  /** Skip to the next video. Safe to call rapidly. */
+  skip: function() {
+    if (state.transitioning) return;
+    var next = state.nextAsset || VideoManager.pickRandom();
+    state.nextAsset = null;
     this.loadAndCrossfadeNext(next);
   },
 
-  /** Update the title overlay. */
-  updateTitle(asset) {
+  updateTitle: function(asset) {
     dom.videoTitle.textContent = LocaleManager.t(asset.localizedNameKey);
   },
 
-  /** Attach event listeners to both video elements. */
-  attachEvents() {
-    [dom.videoA, dom.videoB].forEach(video => {
+  attachEvents: function() {
+    [dom.videoA, dom.videoB].forEach(function(video) {
 
-      // Video ended → load next into inactive element, crossfade once buffered
-      video.addEventListener('ended', () => {
+      // Video ended → trigger next
+      video.addEventListener('ended', function() {
         if (video !== state.activeVideoEl) return;
         if (state.transitioning) return;
-        const next = state.nextAsset || VideoManager.pickRandom();
+        var next = state.nextAsset || VideoManager.pickRandom();
         state.nextAsset = null;
         PlayerManager.loadAndCrossfadeNext(next);
       });
 
-      // timeupdate → only process for the currently active element
-      video.addEventListener('timeupdate', () => {
+      // timeupdate → active element only
+      video.addEventListener('timeupdate', function() {
         if (video !== state.activeVideoEl) return;
-        const asset = state.currentAsset;
+        var asset = state.currentAsset;
         if (asset) POIManager.check(asset, video.currentTime);
         DebugManager.updatePlayback(video);
+
+        // Begin fade-to-black before the video ends so the last frame never freezes.
+        // Trigger when <= blackoutFadeOutMs + holdMs from the end.
+        if (!state.transitioning && video.duration && video.duration > 0) {
+          var remaining = video.duration - video.currentTime;
+          var triggerAt = (CONFIG.blackoutFadeOutMs + CONFIG.blackoutHoldMs) / 1000 + 0.3;
+          if (remaining <= triggerAt && remaining > 0.1) {
+            var next = state.nextAsset || VideoManager.pickRandom();
+            state.nextAsset = null;
+            PlayerManager.loadAndCrossfadeNext(next);
+          }
+        }
       });
 
-      // Stall events → debug logging only (active element only)
-      ['waiting', 'stalled', 'suspend'].forEach(evt => {
-        video.addEventListener(evt, () => {
+      // Stall events → debug only
+      ['waiting', 'stalled', 'suspend'].forEach(function(evt) {
+        video.addEventListener(evt, function() {
           if (video !== state.activeVideoEl) return;
           if (evt === 'suspend' && video.paused) return;
-          if (state.prefs.debugEnabled) DebugManager.log(`Event: ${evt}`);
+          if (state.prefs.debugEnabled) DebugManager.log('Event: ' + evt);
         });
       });
 
-      // playing → debug logging only
-      video.addEventListener('playing', () => {
+      video.addEventListener('playing', function() {
         if (video !== state.activeVideoEl) return;
         if (state.prefs.debugEnabled) DebugManager.log('playing');
       });
 
-      // Error → skip to next
-      video.addEventListener('error', () => {
+      // Error on active element → skip
+      video.addEventListener('error', function() {
         if (video !== state.activeVideoEl) return;
-        DebugManager.log(`Video error: ${video.error?.message || 'unknown'}`);
-        setTimeout(() => PlayerManager.skip(), 500);
+        var msg = video.error ? video.error.message : 'unknown';
+        DebugManager.log('Video error: ' + msg);
+        setTimeout(function() { PlayerManager.skip(); }, 500);
       });
     });
   },
 };
 
-/* ═══════════════════════════════════════════
-   STALL MANAGER
-   Screen burn-in protection via polling.
-   Samples currentTime every second — if it stops advancing the screen
-   fades to black immediately. Lifts only once currentTime is moving again.
+/**
+ * Fully release a video element — stops buffering immediately.
+ * Calling load() after removing src resets the element and cancels
+ * any pending network requests, even on Chromium 87.
+ */
+function _releaseVideo(el) {
+  el.pause();
+  el.removeAttribute('src');
+  el.load();  // cancels network activity and resets media element state
+}
 
-   • No progress for stallFadeMs  → fade to black (hide everything)
-   • No progress for stallSkipMs  → also skip to next video
-   • currentTime advances again   → fade back in
+/* ═══════════════════════════════════════════
+   OSD FADE MANAGER
+   Fades title / POI / clock out before a video swap,
+   then fades them back in once the new video is visible.
+   Compatible with Chromium 79+: no ?., no ??, var only.
 ═══════════════════════════════════════════ */
 
-const StallManager = {
+var OSDFadeManager = {
+  // ms for the CSS opacity transition on OSD elements (must match styles.css)
+  fadeDurationMs: 1200,
+
+  // Delay after video swap before fading OSD back in.
+  // Gives the incoming video time to become clearly visible.
+  fadeInDelayMs: 800,
+
+  _fadeOutTimer: null,
+  _fadeInTimer:  null,
+
+  /** Immediately cancel any pending fade timers */
+  _clearTimers: function() {
+    clearTimeout(this._fadeOutTimer);
+    clearTimeout(this._fadeInTimer);
+    this._fadeOutTimer = null;
+    this._fadeInTimer  = null;
+  },
+
+  /** Add .osd-hidden to all OSD elements → CSS transitions to opacity 0 */
+  _setHidden: function(hidden) {
+    var els = [dom.videoTitle, dom.poiText, dom.clock, dom.dateline];
+    for (var i = 0; i < els.length; i++) {
+      if (hidden) {
+        els[i].classList.add('osd-hidden');
+      } else {
+        els[i].classList.remove('osd-hidden');
+      }
+    }
+  },
+
+  /**
+   * Called at the START of a transition (canplay received, about to swap).
+   * Fades OSD out immediately, then calls onHidden() once the transition
+   * is complete so the caller can safely update text content.
+   * @param {Function} onHidden  — called after fade-out, before video swap
+   */
+  fadeOutThen: function(onHidden) {
+    var self = this;
+    this._clearTimers();
+    this._setHidden(true);
+    this._fadeOutTimer = setTimeout(function() {
+      onHidden();
+    }, self.fadeDurationMs);
+  },
+
+  /**
+   * Called after the video swap. Waits a short delay then fades OSD back in.
+   */
+  fadeIn: function() {
+    var self = this;
+    this._clearTimers();
+    this._fadeInTimer = setTimeout(function() {
+      self._setHidden(false);
+    }, self.fadeInDelayMs);
+  },
+
+  /** Hard-reset — remove hidden class immediately (e.g. after stall recovery) */
+  forceShow: function() {
+    this._clearTimers();
+    this._setHidden(false);
+  },
+};
+
+/* ═══════════════════════════════════════════
+   BLACKOUT MANAGER
+   Handles smooth fade-to-black / fade-from-black used when switching videos.
+   Both the video layer AND the OSD fade together through a full-screen black
+   overlay, eliminating any visible freeze frames or stop-frames.
+
+   Timeline:
+     fadeToBlack(cb)   -> overlay fades in (blackoutFadeOutMs)
+     [cb runs]         -> caller swaps video source, waits for canplay
+     fadeFromBlack(cb) -> overlay fades out (blackoutFadeInMs), OSD fades in
+══════════════════════════════════════════ */
+
+var BlackoutManager = {
+  _el:        null,
+  _fadeTimer: null,
+
+  init: function() {
+    var el = document.createElement('div');
+    el.id = 'transition-blackout';
+    el.style.position       = 'fixed';
+    el.style.top            = '0';
+    el.style.right          = '0';
+    el.style.bottom         = '0';
+    el.style.left           = '0';
+    el.style.zIndex         = '16';
+    el.style.background     = '#000';
+    el.style.opacity        = '0';
+    el.style.pointerEvents  = 'none';
+    el.style.transition     = 'opacity ' + CONFIG.blackoutFadeOutMs + 'ms ease-in-out';
+    document.body.appendChild(el);
+    this._el = el;
+  },
+
+  fadeToBlack: function(onBlack) {
+    var self = this;
+    clearTimeout(this._fadeTimer);
+    OSDFadeManager._clearTimers();
+    OSDFadeManager._setHidden(true);
+    this._el.style.transition = 'opacity ' + CONFIG.blackoutFadeOutMs + 'ms ease-in-out';
+    void this._el.offsetWidth;
+    this._el.style.opacity = '1';
+    this._fadeTimer = setTimeout(function() {
+      setTimeout(function() { onBlack(); }, CONFIG.blackoutHoldMs);
+    }, CONFIG.blackoutFadeOutMs);
+  },
+
+  fadeFromBlack: function(onDone) {
+    clearTimeout(this._fadeTimer);
+    var fadeInMs = CONFIG.blackoutFadeInMs;
+    this._el.style.transition = 'opacity ' + fadeInMs + 'ms ease-in-out';
+    void this._el.offsetWidth;
+    this._el.style.opacity = '0';
+    setTimeout(function() {
+      OSDFadeManager._setHidden(false);
+    }, Math.round(fadeInMs * 0.3));
+    this._fadeTimer = setTimeout(function() {
+      if (onDone) onDone();
+    }, fadeInMs);
+  },
+
+  forceHide: function() {
+    clearTimeout(this._fadeTimer);
+    this._el.style.transition = 'none';
+    this._el.style.opacity    = '0';
+    OSDFadeManager._setHidden(false);
+  },
+};
+
+var StallManager = {
   pollInterval:  null,
-  lastTime:      null,   // last observed currentTime
-  lastTimeAt:    null,   // wall-clock ms when lastTime was recorded
+  lastTime:      null,
+  lastTimeAt:    null,
   isBlacked:     false,
   skipScheduled: false,
 
-  start() {
+  start: function() {
     this.lastTime   = null;
     this.lastTimeAt = null;
-    this.pollInterval = setInterval(() => this._poll(), 1000);
+    var self = this;
+    this.pollInterval = setInterval(function() { self._poll(); }, 1000);
   },
 
-  _poll() {
-    const video = state.activeVideoEl;
+  _poll: function() {
+    var video = state.activeVideoEl;
     if (!video || state.settingsOpen) return;
 
-    // Intentionally paused (e.g. autoplay blocked) — don't treat as stall
     if (video.paused && !video.ended) {
       this.lastTime   = null;
       this.lastTimeAt = null;
       return;
     }
 
-    const now  = Date.now();
-    const time = video.currentTime;
+    var now  = Date.now();
+    var time = video.currentTime;
 
-    // First sample — just record baseline
     if (this.lastTime === null) {
       this.lastTime   = time;
       this.lastTimeAt = now;
@@ -559,7 +739,6 @@ const StallManager = {
     }
 
     if (time !== this.lastTime) {
-      // Progress confirmed — reset tracking and lift blackout if needed
       this.lastTime      = time;
       this.lastTimeAt    = now;
       this.skipScheduled = false;
@@ -567,42 +746,39 @@ const StallManager = {
       return;
     }
 
-    // No progress — how long has it been frozen?
-    const frozenMs = now - this.lastTimeAt;
+    var frozenMs = now - this.lastTimeAt;
 
     if (!this.isBlacked && frozenMs >= CONFIG.stallFadeMs) {
-      DebugManager.log(`Stall ${(frozenMs/1000).toFixed(0)}s — blackout`);
+      DebugManager.log('Stall ' + (frozenMs / 1000).toFixed(0) + 's — blackout');
       this._dropToBlack();
     }
 
     if (!this.skipScheduled && frozenMs >= CONFIG.stallSkipMs) {
       this.skipScheduled = true;
-      DebugManager.log(`Stall ${(frozenMs/1000).toFixed(0)}s — skipping`);
+      DebugManager.log('Stall ' + (frozenMs / 1000).toFixed(0) + 's — skipping');
       PlayerManager.skip();
     }
   },
 
-  _dropToBlack() {
+  _dropToBlack: function() {
     this.isBlacked = true;
     dom.stallBlackout.classList.remove('lifting');
     dom.stallBlackout.classList.add('fading');
   },
 
-  _liftBlackout() {
+  _liftBlackout: function() {
     this.isBlacked = false;
     dom.stallBlackout.classList.remove('fading');
     dom.stallBlackout.classList.add('lifting');
-    // Clean up lifting class after transition completes
-    setTimeout(() => dom.stallBlackout.classList.remove('lifting'), 2100);
+    setTimeout(function() { dom.stallBlackout.classList.remove('lifting'); }, 2100);
+    BlackoutManager.forceHide();
     DebugManager.log('Resumed — blackout lifted');
   },
 
-  /** Call after a crossfade/skip so we don't carry over stale timing. */
-  reset() {
+  reset: function() {
     this.lastTime      = null;
     this.lastTimeAt    = null;
     this.skipScheduled = false;
-    // Do NOT lift blackout here — wait for confirmed progress in _poll()
   },
 };
 
@@ -610,40 +786,38 @@ const StallManager = {
    CLOCK MANAGER
 ═══════════════════════════════════════════ */
 
-const ClockManager = {
+var ClockManager = {
   intervalId: null,
 
-  start() {
+  start: function() {
     this.tick();
-    this.intervalId = setInterval(() => this.tick(), 1000);
+    var self = this;
+    this.intervalId = setInterval(function() { self.tick(); }, 1000);
   },
 
-  tick() {
-    const now    = new Date();
-    const locale = state.prefs.locale || CONFIG.defaultLocale;
-    const date   = state.dateStrings; // { months, daysOfWeek } or null
+  tick: function() {
+    var now    = new Date();
+    var locale = state.prefs.locale || CONFIG.defaultLocale;
+    var date   = state.dateStrings;
 
-    // Time: HH:MM
     dom.clock.textContent = now.toLocaleTimeString(locale, {
       hour:   '2-digit',
       minute: '2-digit',
       hour12: false,
     });
 
-    // Date: Weekday · Day · Month
-    // Use locale-provided arrays if present, otherwise fall back to Intl
-    const weekday = (date?.daysOfWeek)
+    var weekday = (date && date.daysOfWeek)
       ? date.daysOfWeek[now.getDay()]
       : now.toLocaleDateString(locale, { weekday: 'long' });
-    const month   = (date?.months)
+    var month = (date && date.months)
       ? date.months[now.getMonth()]
       : now.toLocaleDateString(locale, { month: 'long' });
-    const day     = now.toLocaleDateString(locale, { day: 'numeric' });
+    var day = now.toLocaleDateString(locale, { day: 'numeric' });
 
-    dom.dateline.textContent = `${weekday} · ${day} ${month}`;
+    dom.dateline.textContent = weekday + ' · ' + day + ' ' + month;
   },
 
-  stop() {
+  stop: function() {
     clearInterval(this.intervalId);
   },
 };
@@ -652,39 +826,38 @@ const ClockManager = {
    DEBUG MANAGER
 ═══════════════════════════════════════════ */
 
-const DebugManager = {
-  updateTotal(n) {
+var DebugManager = {
+  updateTotal: function(n) {
     dom.dbgTotal.textContent = n;
   },
 
-  updateCurrent(asset, url, quality) {
-    dom.dbgId.textContent      = asset?.id || '—';
+  updateCurrent: function(asset, url, quality) {
+    dom.dbgId.textContent      = (asset && asset.id) ? asset.id : '—';
     dom.dbgQuality.textContent = quality || '—';
     dom.dbgUrl.textContent     = url || '—';
     dom.dbgStatus.textContent  = 'playing';
   },
 
-  updatePlayback(video) {
+  updatePlayback: function(video) {
     if (!state.prefs.debugEnabled) return;
-    const dur  = video.duration || 0;
-    const curr = video.currentTime || 0;
+    var dur  = video.duration  || 0;
+    var curr = video.currentTime || 0;
     dom.dbgProgress.textContent = dur
-      ? `${curr.toFixed(1)}s / ${dur.toFixed(1)}s (${Math.round(curr/dur*100)}%)`
-      : `${curr.toFixed(1)}s`;
+      ? curr.toFixed(1) + 's / ' + dur.toFixed(1) + 's (' + Math.round(curr / dur * 100) + '%)'
+      : curr.toFixed(1) + 's';
 
-    // Buffer status
     if (video.buffered.length > 0) {
-      const bufEnd = video.buffered.end(video.buffered.length - 1);
-      dom.dbgBuffer.textContent = `${bufEnd.toFixed(1)}s buffered`;
+      var bufEnd = video.buffered.end(video.buffered.length - 1);
+      dom.dbgBuffer.textContent = bufEnd.toFixed(1) + 's buffered';
     }
   },
 
-  log(msg) {
-    console.log(`[Screensaver] ${msg}`);
+  log: function(msg) {
+    console.log('[Screensaver] ' + msg);
     if (dom.dbgStatus) dom.dbgStatus.textContent = msg;
   },
 
-  setVisible(visible) {
+  setVisible: function(visible) {
     dom.debugOverlay.classList.toggle('hidden', !visible);
   },
 };
@@ -693,129 +866,121 @@ const DebugManager = {
    SETTINGS MANAGER
 ═══════════════════════════════════════════ */
 
-const SettingsManager = {
-  /** Apply title opacity via CSS variable. */
-  applyTitleOpacity(value) {
+var SettingsManager = {
+  applyTitleOpacity: function(value) {
     document.documentElement.style.setProperty('--osd-title-opacity', value / 100);
   },
-
-  /** Apply POI opacity via CSS variable. */
-  applyPoiOpacity(value) {
+  applyPoiOpacity: function(value) {
     document.documentElement.style.setProperty('--osd-poi-opacity', value / 100);
   },
-
-  /** Apply clock+date opacity via CSS variable. */
-  applyClockOpacity(value) {
+  applyClockOpacity: function(value) {
     document.documentElement.style.setProperty('--osd-clock-opacity', value / 100);
   },
-
-  /** Apply title+POI corner position. */
-  applyTitleCorner(corner) {
+  applyTitleCorner: function(corner) {
     document.documentElement.setAttribute('data-title-corner', corner);
   },
-
-  /** Apply clock+date corner position. */
-  applyClockCorner(corner) {
+  applyClockCorner: function(corner) {
     document.documentElement.setAttribute('data-clock-corner', corner);
   },
 
-  /** Update the mutual-exclusion options on both corner selects.
-   *  The corner chosen for one group is disabled in the other's dropdown. */
-  syncCornerOptions() {
-    const tc = state.prefs.titleCorner;
-    const cc = state.prefs.clockCorner;
-    Array.from(dom.titleCornerSelect.options).forEach(o => {
+  syncCornerOptions: function() {
+    var tc = state.prefs.titleCorner;
+    var cc = state.prefs.clockCorner;
+    Array.from(dom.titleCornerSelect.options).forEach(function(o) {
       o.disabled = (o.value === cc);
     });
-    Array.from(dom.clockCornerSelect.options).forEach(o => {
+    Array.from(dom.clockCornerSelect.options).forEach(function(o) {
       o.disabled = (o.value === tc);
     });
   },
 
-  /** Apply POI above/below title order. */
-  applyPoiOrder(poiAbove) {
+  applyPoiOrder: function(poiAbove) {
     document.documentElement.setAttribute('data-poi-order', poiAbove ? 'above' : 'below');
   },
 
-  /** Apply font family to all OSD + UI elements via CSS variable. */
-  applyFont(fontFamily) {
-    document.documentElement.style.setProperty('--font-active', `'${fontFamily}', sans-serif`);
+  applyFont: function(fontFamily) {
+    document.documentElement.style.setProperty('--font-active', "'" + fontFamily + "', sans-serif");
     if (dom.fontPreview) {
-      dom.fontPreview.style.fontFamily = `'${fontFamily}', sans-serif`;
+      dom.fontPreview.style.fontFamily = "'" + fontFamily + "', sans-serif";
     }
   },
 
-  /** Individual font size scales via CSS variables. */
-  applyTitleSize(v)  { document.documentElement.style.setProperty('--title-scale', v / 100); },
-  applyPoiSize(v)    { document.documentElement.style.setProperty('--poi-scale',   v / 100); },
-  applyClockSize(v)  { document.documentElement.style.setProperty('--clock-scale', v / 100); },
+  applyTitleSize: function(v) { document.documentElement.style.setProperty('--title-scale', v / 100); },
+  applyPoiSize:   function(v) { document.documentElement.style.setProperty('--poi-scale',   v / 100); },
+  applyClockSize: function(v) { document.documentElement.style.setProperty('--clock-scale', v / 100); },
 
-  open() {
+  open: function() {
     state.settingsOpen = true;
     dom.settingsOverlay.classList.remove('hidden');
     document.body.classList.add('settings-open');
-    // Sync UI to current prefs
+
     dom.qualitySelect.value    = state.prefs.quality;
     dom.fallbackToggle.checked = state.prefs.fallback;
     dom.debugToggle.checked    = state.prefs.debugEnabled;
     dom.localeSelect.value     = state.prefs.locale;
-    dom.osdTitleOpacity.value       = state.prefs.osdTitleOpacity;
-    dom.osdTitleOpacityValue.textContent = `${state.prefs.osdTitleOpacity}%`;
-    dom.osdPoiOpacity.value         = state.prefs.osdPoiOpacity;
-    dom.osdPoiOpacityValue.textContent   = `${state.prefs.osdPoiOpacity}%`;
-    dom.osdClockOpacity.value       = state.prefs.osdClockOpacity;
-    dom.osdClockOpacityValue.textContent = `${state.prefs.osdClockOpacity}%`;
-    dom.titleCornerSelect.value     = state.prefs.titleCorner;
-    dom.clockCornerSelect.value     = state.prefs.clockCorner;
+
+    dom.osdTitleOpacity.value            = state.prefs.osdTitleOpacity;
+    dom.osdTitleOpacityValue.textContent = state.prefs.osdTitleOpacity + '%';
+    dom.osdPoiOpacity.value              = state.prefs.osdPoiOpacity;
+    dom.osdPoiOpacityValue.textContent   = state.prefs.osdPoiOpacity + '%';
+    dom.osdClockOpacity.value            = state.prefs.osdClockOpacity;
+    dom.osdClockOpacityValue.textContent = state.prefs.osdClockOpacity + '%';
+
+    dom.titleCornerSelect.value    = state.prefs.titleCorner;
+    dom.clockCornerSelect.value    = state.prefs.clockCorner;
     this.syncCornerOptions();
-    dom.titleSizeSlider.value       = state.prefs.titleSize;
-    dom.titleSizeValue.textContent  = `${state.prefs.titleSize}%`;
-    dom.poiSizeSlider.value         = state.prefs.poiSize;
-    dom.poiSizeValue.textContent    = `${state.prefs.poiSize}%`;
-    dom.clockSizeSlider.value       = state.prefs.clockSize;
-    dom.clockSizeValue.textContent  = `${state.prefs.clockSize}%`;
-    if (dom.fontSelect)          dom.fontSelect.value          = state.prefs.displayFont;
+
+    dom.titleSizeSlider.value      = state.prefs.titleSize;
+    dom.titleSizeValue.textContent = state.prefs.titleSize + '%';
+    dom.poiSizeSlider.value        = state.prefs.poiSize;
+    dom.poiSizeValue.textContent   = state.prefs.poiSize + '%';
+    dom.clockSizeSlider.value      = state.prefs.clockSize;
+    dom.clockSizeValue.textContent = state.prefs.clockSize + '%';
+
+    if (dom.fontSelect)          dom.fontSelect.value            = state.prefs.displayFont;
     if (dom.poiAboveTitleToggle) dom.poiAboveTitleToggle.checked = state.prefs.poiAboveTitle;
     if (dom.hintToggle)          dom.hintToggle.checked          = state.prefs.showHint;
+
     this.applyFont(state.prefs.displayFont);
 
-    // Auto-focus first focusable element for D-pad / keyboard nav
-    setTimeout(() => {
-      const first = document.getElementById('settings-modal')?.querySelector('select, input, button');
-      first?.focus();
+    setTimeout(function() {
+      var first = document.getElementById('settings-modal');
+      if (first) {
+        var el = first.querySelector('select, input, button');
+        if (el) el.focus();
+      }
     }, 50);
   },
 
-  close() {
+  close: function() {
     state.settingsOpen = false;
     dom.settingsOverlay.classList.add('hidden');
     document.body.classList.remove('settings-open');
   },
 
-  /** Read current UI values and apply them. */
-  async applySettings() {
-    const newLocale  = dom.localeSelect.value;
-    const localeChanged = newLocale !== state.prefs.locale;
+  applySettings: function() {
+    var self = this;
+    var newLocale    = dom.localeSelect.value;
+    var localeChanged = newLocale !== state.prefs.locale;
 
-    state.prefs.quality        = dom.qualitySelect.value;
-    state.prefs.fallback       = dom.fallbackToggle.checked;
-    state.prefs.locale         = newLocale;
-    state.prefs.debugEnabled   = dom.debugToggle.checked;
-    state.prefs.osdTitleOpacity = parseInt(dom.osdTitleOpacity.value, 10);
-    state.prefs.osdPoiOpacity   = parseInt(dom.osdPoiOpacity.value, 10);
-    state.prefs.osdClockOpacity = parseInt(dom.osdClockOpacity.value, 10);
-    state.prefs.titleCorner    = dom.titleCornerSelect.value;
-    state.prefs.clockCorner    = dom.clockCornerSelect.value;
-    state.prefs.titleSize      = parseInt(dom.titleSizeSlider.value, 10);
-    state.prefs.poiSize        = parseInt(dom.poiSizeSlider.value, 10);
-    state.prefs.clockSize      = parseInt(dom.clockSizeSlider.value, 10);
-    state.prefs.displayFont    = dom.fontSelect?.value || state.prefs.displayFont;
-    state.prefs.poiAboveTitle  = dom.poiAboveTitleToggle?.checked || false;
-    state.prefs.showHint       = dom.hintToggle?.checked ?? true;
+    state.prefs.quality          = dom.qualitySelect.value;
+    state.prefs.fallback         = dom.fallbackToggle.checked;
+    state.prefs.locale           = newLocale;
+    state.prefs.debugEnabled     = dom.debugToggle.checked;
+    state.prefs.osdTitleOpacity  = parseInt(dom.osdTitleOpacity.value, 10);
+    state.prefs.osdPoiOpacity    = parseInt(dom.osdPoiOpacity.value, 10);
+    state.prefs.osdClockOpacity  = parseInt(dom.osdClockOpacity.value, 10);
+    state.prefs.titleCorner      = dom.titleCornerSelect.value;
+    state.prefs.clockCorner      = dom.clockCornerSelect.value;
+    state.prefs.titleSize        = parseInt(dom.titleSizeSlider.value, 10);
+    state.prefs.poiSize          = parseInt(dom.poiSizeSlider.value, 10);
+    state.prefs.clockSize        = parseInt(dom.clockSizeSlider.value, 10);
+    state.prefs.displayFont      = dom.fontSelect ? dom.fontSelect.value : state.prefs.displayFont;
+    state.prefs.poiAboveTitle    = dom.poiAboveTitleToggle ? dom.poiAboveTitleToggle.checked : false;
+    state.prefs.showHint         = dom.hintToggle ? dom.hintToggle.checked : true;
 
     this.savePrefs();
 
-    // Apply immediately
     this.applyTitleOpacity(state.prefs.osdTitleOpacity);
     this.applyPoiOpacity(state.prefs.osdPoiOpacity);
     this.applyClockOpacity(state.prefs.osdClockOpacity);
@@ -828,58 +993,52 @@ const SettingsManager = {
     this.applyFont(state.prefs.displayFont);
     this.applyPoiOrder(state.prefs.poiAboveTitle);
 
-    // Apply debug overlay visibility
     DebugManager.setVisible(state.prefs.debugEnabled);
 
-    // Reload locale strings if changed
     if (localeChanged) {
-      const localeData   = await LocaleManager.load(state.prefs.locale);
-      state.strings      = localeData.strings;
-      state.dateStrings  = localeData.date;
-      // Update title with new locale
-      if (state.currentAsset) PlayerManager.updateTitle(state.currentAsset);
-      dom.localeSelect.value = state.prefs.locale;
-      // Re-translate the currently visible POI.
-      // Preserve poiLastKey so the next timeupdate doesn't retrigger it.
-      if (state.poiLastKey) {
-        const translated = state.strings[state.poiLastKey];
-        if (translated) {
-          // Show with new translation — use show() but keep key intact after
-          const savedKey = state.poiLastKey;
-          POIManager.show(translated);
-          state.poiLastKey = savedKey; // restore — show() doesn't touch it, but be explicit
-        } else {
-          // This locale has no translation for this POI key — clear the display
-          // but keep poiLastKey so the same POI doesn't retrigger on timeupdate
-          dom.poiText.textContent = '';
-          dom.poiText.classList.remove('poi-enter', 'poi-hidden');
-        }
-      }
+      return LocaleManager.load(state.prefs.locale)
+        .then(function(localeData) {
+          state.strings     = localeData.strings;
+          state.dateStrings = localeData.date;
+          if (state.currentAsset) PlayerManager.updateTitle(state.currentAsset);
+          dom.localeSelect.value = state.prefs.locale;
+
+          if (state.poiLastKey) {
+            var translated = state.strings[state.poiLastKey];
+            if (translated) {
+              var savedKey = state.poiLastKey;
+              POIManager.show(translated);
+              state.poiLastKey = savedKey;
+            } else {
+              dom.poiText.textContent = '';
+              dom.poiText.classList.remove('poi-enter', 'poi-hidden');
+            }
+          }
+        });
     }
+    return Promise.resolve();
   },
 
-  /** Persist preferences to localStorage. */
-  savePrefs() {
+  savePrefs: function() {
     try {
       localStorage.setItem('screensaver_prefs', JSON.stringify(state.prefs));
     } catch (e) { /* ignore if localStorage unavailable */ }
   },
 
-  /** Load preferences from localStorage. */
-  loadPrefs() {
+  loadPrefs: function() {
     try {
-      const raw = localStorage.getItem('screensaver_prefs');
+      var raw = localStorage.getItem('screensaver_prefs');
       if (raw) {
-        const saved = JSON.parse(raw);
+        var saved = JSON.parse(raw);
         Object.assign(state.prefs, saved);
         // Migrate legacy osdPosition → titleCorner + clockCorner
         if (saved.osdPosition && !saved.titleCorner) {
-          const map = {
+          var map = {
             'bottom-split': ['bottom-left', 'bottom-right'],
             'bottom-left':  ['bottom-left', 'top-left'],
             'bottom-right': ['bottom-right', 'top-right'],
           };
-          const corners = map[saved.osdPosition] || ['bottom-left', 'bottom-right'];
+          var corners = map[saved.osdPosition] || ['bottom-left', 'bottom-right'];
           state.prefs.titleCorner = corners[0];
           state.prefs.clockCorner = corners[1];
         }
@@ -887,182 +1046,176 @@ const SettingsManager = {
     } catch (e) { /* ignore */ }
   },
 
-  /** Attach change listeners to all settings inputs. */
-  attachListeners() {
+  attachListeners: function() {
+    var self = this;
+
     [dom.qualitySelect, dom.fallbackToggle, dom.localeSelect, dom.debugToggle]
-      .forEach(el => el.addEventListener('change', () => this.applySettings()));
+      .forEach(function(el) {
+        el.addEventListener('change', function() { self.applySettings(); });
+      });
 
-    // Title opacity slider
-    dom.osdTitleOpacity.addEventListener('input', () => {
-      const v = parseInt(dom.osdTitleOpacity.value, 10);
-      dom.osdTitleOpacityValue.textContent = `${v}%`;
-      this.applyTitleOpacity(v);
+    dom.osdTitleOpacity.addEventListener('input', function() {
+      var v = parseInt(dom.osdTitleOpacity.value, 10);
+      dom.osdTitleOpacityValue.textContent = v + '%';
+      self.applyTitleOpacity(v);
     });
-    dom.osdTitleOpacity.addEventListener('change', () => this.applySettings());
+    dom.osdTitleOpacity.addEventListener('change', function() { self.applySettings(); });
 
-    // POI opacity slider
-    dom.osdPoiOpacity.addEventListener('input', () => {
-      const v = parseInt(dom.osdPoiOpacity.value, 10);
-      dom.osdPoiOpacityValue.textContent = `${v}%`;
-      this.applyPoiOpacity(v);
+    dom.osdPoiOpacity.addEventListener('input', function() {
+      var v = parseInt(dom.osdPoiOpacity.value, 10);
+      dom.osdPoiOpacityValue.textContent = v + '%';
+      self.applyPoiOpacity(v);
     });
-    dom.osdPoiOpacity.addEventListener('change', () => this.applySettings());
+    dom.osdPoiOpacity.addEventListener('change', function() { self.applySettings(); });
 
-    // Clock+Date opacity slider
-    dom.osdClockOpacity.addEventListener('input', () => {
-      const v = parseInt(dom.osdClockOpacity.value, 10);
-      dom.osdClockOpacityValue.textContent = `${v}%`;
-      this.applyClockOpacity(v);
+    dom.osdClockOpacity.addEventListener('input', function() {
+      var v = parseInt(dom.osdClockOpacity.value, 10);
+      dom.osdClockOpacityValue.textContent = v + '%';
+      self.applyClockOpacity(v);
     });
-    dom.osdClockOpacity.addEventListener('change', () => this.applySettings());
+    dom.osdClockOpacity.addEventListener('change', function() { self.applySettings(); });
 
-    // Corner selects — mutual exclusion enforced on every change
-    dom.titleCornerSelect.addEventListener('change', () => {
-      // If user picked the same corner as clock, swap clock to the old title corner
+    dom.titleCornerSelect.addEventListener('change', function() {
       if (dom.titleCornerSelect.value === dom.clockCornerSelect.value) {
         dom.clockCornerSelect.value = state.prefs.titleCorner;
       }
-      this.applySettings();
+      self.applySettings();
     });
-    dom.clockCornerSelect.addEventListener('change', () => {
+    dom.clockCornerSelect.addEventListener('change', function() {
       if (dom.clockCornerSelect.value === dom.titleCornerSelect.value) {
         dom.titleCornerSelect.value = state.prefs.clockCorner;
       }
-      this.applySettings();
+      self.applySettings();
     });
 
-    // Size sliders — live preview on drag
-    const makeSizeLiveListener = (slider, valueEl, applyFn) => {
-      slider.addEventListener('input', () => {
-        const v = parseInt(slider.value, 10);
-        valueEl.textContent = `${v}%`;
-        applyFn.call(this, v);
+    function makeSizeLiveListener(slider, valueEl, applyFn) {
+      slider.addEventListener('input', function() {
+        var v = parseInt(slider.value, 10);
+        valueEl.textContent = v + '%';
+        applyFn.call(self, v);
       });
-      slider.addEventListener('change', () => this.applySettings());
-    };
-    makeSizeLiveListener(dom.titleSizeSlider, dom.titleSizeValue, this.applyTitleSize);
-    makeSizeLiveListener(dom.poiSizeSlider,   dom.poiSizeValue,   this.applyPoiSize);
-    makeSizeLiveListener(dom.clockSizeSlider, dom.clockSizeValue, this.applyClockSize);
+      slider.addEventListener('change', function() { self.applySettings(); });
+    }
+    makeSizeLiveListener(dom.titleSizeSlider, dom.titleSizeValue, self.applyTitleSize);
+    makeSizeLiveListener(dom.poiSizeSlider,   dom.poiSizeValue,   self.applyPoiSize);
+    makeSizeLiveListener(dom.clockSizeSlider, dom.clockSizeValue, self.applyClockSize);
 
-    // Font select — live preview
     if (dom.fontSelect) {
-      dom.fontSelect.addEventListener('change', () => {
-        this.applyFont(dom.fontSelect.value);
-        this.applySettings();
+      dom.fontSelect.addEventListener('change', function() {
+        self.applyFont(dom.fontSelect.value);
+        self.applySettings();
       });
     }
 
-    // POI above/below title toggle
     if (dom.poiAboveTitleToggle) {
-      dom.poiAboveTitleToggle.addEventListener('change', () => this.applySettings());
+      dom.poiAboveTitleToggle.addEventListener('change', function() { self.applySettings(); });
     }
 
-    // Hint toggle
     if (dom.hintToggle) {
-      dom.hintToggle.addEventListener('change', () => this.applySettings());
+      dom.hintToggle.addEventListener('change', function() { self.applySettings(); });
     }
 
-    // Close button
-    dom.settingsClose.addEventListener('click', () => this.close());
+    dom.settingsClose.addEventListener('click', function() { self.close(); });
 
-    // Click outside modal to close
-    dom.settingsOverlay.addEventListener('click', (e) => {
-      if (e.target === dom.settingsOverlay) this.close();
+    dom.settingsOverlay.addEventListener('click', function(e) {
+      if (e.target === dom.settingsOverlay) self.close();
     });
 
-    // Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && state.settingsOpen) this.close();
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && state.settingsOpen) self.close();
     });
   },
 };
 
 /* ═══════════════════════════════════════════
    INPUT MANAGER
-   Short press → skip video
-   Long press  → open settings
 ═══════════════════════════════════════════ */
 
-const InputManager = {
-  pressTimer: null,
-  pressStart: 0,
-  didLongPress: false,
+var InputManager = {
+  pressTimer:    null,
+  pressStart:    0,
+  didLongPress:  false,
+  _startX:       0,
+  _startY:       0,
+  _dragThreshold: 8,   // pixels of movement that cancels a short-press
 
-  init() {
-    // Keyboard
-    document.addEventListener('keydown', (e) => {
-      // D-pad / remote control navigation when settings is open
+  init: function() {
+    var self = this;
+
+    document.addEventListener('keydown', function(e) {
       if (state.settingsOpen) {
-        this.handleDpad(e);
+        self.handleDpad(e);
         return;
       }
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'OK') {
-        this.startPress(e);
+        self.startPress(e);
       }
     });
-    document.addEventListener('keyup', (e) => {
+    document.addEventListener('keyup', function(e) {
       if (state.settingsOpen) return;
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'OK') {
-        this.endPress();
+        self.endPress(0, 0);
       }
     });
 
-    // Mouse / touch (clicks anywhere on the video area)
-    document.addEventListener('mousedown', (e) => {
+    document.addEventListener('mousedown', function(e) {
       if (state.settingsOpen) return;
-      if (e.target.closest('#settings-overlay')) return;
-      this.startPress(e);
+      if (e.button !== 0) return;                          // left-click only
+      if (e.target.closest && e.target.closest('#settings-overlay')) return;
+      self.startPress(e);
     });
-    document.addEventListener('mouseup', (e) => {
-      if (e.target.closest('#settings-overlay')) return;
-      this.endPress();
+    document.addEventListener('mouseup', function(e) {
+      if (e.target.closest && e.target.closest('#settings-overlay')) return;
+      self.endPress(e.clientX, e.clientY);
     });
 
-    // Touch
-    document.addEventListener('touchstart', (e) => {
+    document.addEventListener('touchstart', function(e) {
       if (state.settingsOpen) return;
-      this.startPress(e);
+      if (e.target.closest && e.target.closest('#settings-overlay')) return;
+      var t = e.touches[0];
+      self.startPress(t);
     }, { passive: true });
-    document.addEventListener('touchend', () => this.endPress());
+    document.addEventListener('touchend', function(e) {
+      var t = e.changedTouches[0];
+      self.endPress(t ? t.clientX : self._startX, t ? t.clientY : self._startY);
+    });
   },
 
-  startPress(e) {
+  startPress: function(e) {
+    var self = this;
     this.didLongPress = false;
     this.pressStart   = Date.now();
-    this.pressTimer   = setTimeout(() => {
-      this.didLongPress = true;
+    this._startX      = (e && e.clientX) ? e.clientX : 0;
+    this._startY      = (e && e.clientY) ? e.clientY : 0;
+    clearTimeout(this.pressTimer);
+    this.pressTimer   = setTimeout(function() {
+      self.didLongPress = true;
       SettingsManager.open();
     }, CONFIG.longPressMs);
   },
 
-  endPress() {
+  endPress: function(endX, endY) {
     clearTimeout(this.pressTimer);
-    if (!this.didLongPress && !state.settingsOpen) {
-      const elapsed = Date.now() - this.pressStart;
-      if (elapsed < CONFIG.longPressMs) {
-        this.triggerSkip();
-      }
-    }
+    if (this.didLongPress || state.settingsOpen) return;
+    var elapsed = Date.now() - this.pressStart;
+    if (elapsed >= CONFIG.longPressMs) return;
+    // Cancel if the pointer moved too far (drag / scroll)
+    var dx = (endX || 0) - this._startX;
+    var dy = (endY || 0) - this._startY;
+    if (Math.sqrt(dx * dx + dy * dy) > this._dragThreshold) return;
+    this.triggerSkip();
   },
 
-  triggerSkip() {
-    // Animate ripple
+  triggerSkip: function() {
     dom.skipRipple.classList.remove('hidden', 'animate');
     void dom.skipRipple.offsetWidth;
     dom.skipRipple.classList.add('animate');
-    setTimeout(() => dom.skipRipple.classList.add('hidden'), 500);
-
+    setTimeout(function() { dom.skipRipple.classList.add('hidden'); }, 500);
     PlayerManager.skip();
   },
 
-  /** D-pad / arrow key navigation for the settings modal.
-   *  ArrowUp/Down move between focusable controls.
-   *  ArrowLeft/Right adjust sliders and cycle selects.
-   *  Enter/OK activates the focused element.
-   *  Backspace/Back closes the modal.
-   */
-  handleDpad(e) {
-    const FOCUSABLE = 'select, input[type="range"], input[type="checkbox"], button';
+  handleDpad: function(e) {
+    var FOCUSABLE = 'select, input[type="range"], input[type="checkbox"], button';
 
     if (e.key === 'Escape' || e.key === 'Back' || e.key === 'BrowserBack') {
       SettingsManager.close();
@@ -1070,30 +1223,30 @@ const InputManager = {
       return;
     }
 
-    const modal   = document.getElementById('settings-modal');
-    const items   = Array.from(modal.querySelectorAll(FOCUSABLE));
-    const focused = document.activeElement;
-    const idx     = items.indexOf(focused);
+    var modal   = document.getElementById('settings-modal');
+    var items   = Array.from(modal.querySelectorAll(FOCUSABLE));
+    var focused = document.activeElement;
+    var idx     = items.indexOf(focused);
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const next = items[idx + 1] || items[0];
+      var next = items[idx + 1] || items[0];
       next.focus();
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      const prev = items[idx - 1] || items[items.length - 1];
+      var prev = items[idx - 1] || items[items.length - 1];
       prev.focus();
     } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       e.preventDefault();
       if (!focused) return;
-      const dir = e.key === 'ArrowRight' ? 1 : -1;
+      var dir = (e.key === 'ArrowRight') ? 1 : -1;
       if (focused.tagName === 'SELECT') {
         focused.selectedIndex = Math.max(0, Math.min(focused.options.length - 1, focused.selectedIndex + dir));
         focused.dispatchEvent(new Event('change', { bubbles: true }));
       } else if (focused.type === 'range') {
-        const step = parseInt(focused.step, 10) || 1;
+        var step = parseInt(focused.step, 10) || 1;
         focused.value = Math.max(parseInt(focused.min, 10), Math.min(parseInt(focused.max, 10), parseInt(focused.value, 10) + dir * step));
-        focused.dispatchEvent(new Event('input', { bubbles: true }));
+        focused.dispatchEvent(new Event('input',  { bubbles: true }));
         focused.dispatchEvent(new Event('change', { bubbles: true }));
       } else if (focused.type === 'checkbox') {
         focused.checked = !focused.checked;
@@ -1101,7 +1254,7 @@ const InputManager = {
       }
     } else if (e.key === 'Enter' || e.key === 'OK') {
       e.preventDefault();
-      if (!focused) { items[0]?.focus(); return; }
+      if (!focused) { if (items[0]) items[0].focus(); return; }
       if (focused.type === 'checkbox') {
         focused.checked = !focused.checked;
         focused.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1118,22 +1271,22 @@ const InputManager = {
    HINT MANAGER
 ═══════════════════════════════════════════ */
 
-const HintManager = {
+var HintManager = {
   _timer: null,
 
-  show() {
+  show: function() {
     if (!state.prefs.showHint) {
       dom.startHint.classList.add('hidden');
       return;
     }
     dom.startHint.classList.remove('hidden');
-    // Animation is 5s — hide the element after it finishes so it doesn't block interactions
-    this._timer = setTimeout(() => {
+    var self = this;
+    this._timer = setTimeout(function() {
       dom.startHint.classList.add('hidden');
     }, 5000);
   },
 
-  hide() {
+  hide: function() {
     clearTimeout(this._timer);
     dom.startHint.classList.add('hidden');
   },
@@ -1143,23 +1296,30 @@ const HintManager = {
    MAIN INIT
 ═══════════════════════════════════════════ */
 
-async function init() {
-  // Load saved preferences
+function init() {
+  // :has() is not available in Chromium 87. Instead, mark toggle rows with a class
+  // so the CSS .settings-row.has-toggle rule can target them on mobile.
+  document.querySelectorAll('.settings-row').forEach(function(row) {
+    if (row.querySelector('.toggle-wrap')) {
+      row.classList.add('has-toggle');
+    }
+  });
+
+  BlackoutManager.init();
   SettingsManager.loadPrefs();
 
-  // Apply debug visibility immediately
   DebugManager.setVisible(state.prefs.debugEnabled);
   dom.debugToggle.checked    = state.prefs.debugEnabled;
   dom.fallbackToggle.checked = state.prefs.fallback;
   dom.qualitySelect.value    = state.prefs.quality;
 
-  // Apply OSD opacities from saved prefs
-  dom.osdTitleOpacity.value = state.prefs.osdTitleOpacity;
-  dom.osdTitleOpacityValue.textContent = `${state.prefs.osdTitleOpacity}%`;
-  dom.osdPoiOpacity.value = state.prefs.osdPoiOpacity;
-  dom.osdPoiOpacityValue.textContent = `${state.prefs.osdPoiOpacity}%`;
-  dom.osdClockOpacity.value = state.prefs.osdClockOpacity;
-  dom.osdClockOpacityValue.textContent = `${state.prefs.osdClockOpacity}%`;
+  dom.osdTitleOpacity.value            = state.prefs.osdTitleOpacity;
+  dom.osdTitleOpacityValue.textContent = state.prefs.osdTitleOpacity + '%';
+  dom.osdPoiOpacity.value              = state.prefs.osdPoiOpacity;
+  dom.osdPoiOpacityValue.textContent   = state.prefs.osdPoiOpacity + '%';
+  dom.osdClockOpacity.value            = state.prefs.osdClockOpacity;
+  dom.osdClockOpacityValue.textContent = state.prefs.osdClockOpacity + '%';
+
   SettingsManager.applyTitleOpacity(state.prefs.osdTitleOpacity);
   SettingsManager.applyPoiOpacity(state.prefs.osdPoiOpacity);
   SettingsManager.applyClockOpacity(state.prefs.osdClockOpacity);
@@ -1170,64 +1330,54 @@ async function init() {
   SettingsManager.applyClockSize(state.prefs.clockSize);
   SettingsManager.applyFont(state.prefs.displayFont);
   SettingsManager.applyPoiOrder(state.prefs.poiAboveTitle);
+
   dom.titleCornerSelect.value    = state.prefs.titleCorner;
   dom.clockCornerSelect.value    = state.prefs.clockCorner;
   SettingsManager.syncCornerOptions();
-  dom.titleSizeSlider.value      = state.prefs.titleSize;
-  dom.titleSizeValue.textContent = `${state.prefs.titleSize}%`;
-  dom.poiSizeSlider.value        = state.prefs.poiSize;
-  dom.poiSizeValue.textContent   = `${state.prefs.poiSize}%`;
-  dom.clockSizeSlider.value      = state.prefs.clockSize;
-  dom.clockSizeValue.textContent = `${state.prefs.clockSize}%`;
-  if (dom.fontSelect)          { dom.fontSelect.value = state.prefs.displayFont; }
-  if (dom.poiAboveTitleToggle) { dom.poiAboveTitleToggle.checked = state.prefs.poiAboveTitle; }
 
-  // Populate locale dropdown
+  dom.titleSizeSlider.value      = state.prefs.titleSize;
+  dom.titleSizeValue.textContent = state.prefs.titleSize + '%';
+  dom.poiSizeSlider.value        = state.prefs.poiSize;
+  dom.poiSizeValue.textContent   = state.prefs.poiSize + '%';
+  dom.clockSizeSlider.value      = state.prefs.clockSize;
+  dom.clockSizeValue.textContent = state.prefs.clockSize + '%';
+
+  if (dom.fontSelect)          dom.fontSelect.value            = state.prefs.displayFont;
+  if (dom.poiAboveTitleToggle) dom.poiAboveTitleToggle.checked = state.prefs.poiAboveTitle;
+
   LocaleManager.populateSelect();
 
-  // Load locale strings + optional date arrays
-  try {
-    const localeData   = await LocaleManager.load(state.prefs.locale);
-    state.strings      = localeData.strings;
-    state.dateStrings  = localeData.date;   // null if locale doesn't define date arrays
-  } catch (e) {
-    state.strings     = {};
-    state.dateStrings = null;
-  }
-
-  // Load video list
-  try {
-    await VideoManager.init();
-  } catch (e) {
-    return; // Already handled in VideoManager.init
-  }
-
-  // Attach settings listeners
-  SettingsManager.attachListeners();
-
-  // Attach video events
-  PlayerManager.attachEvents();
-
-  // Start stall polling
-  StallManager.start();
-
-  // Start playback
-  await PlayerManager.start();
-
-  // Start clock
-  ClockManager.start();
-
-  // Start input handling
-  InputManager.init();
-
-  // Show startup hint
-  if (dom.hintToggle) dom.hintToggle.checked = state.prefs.showHint;
-  HintManager.show();
-
-  DebugManager.log('Ready');
+  // Load locale, then videos, then start
+  LocaleManager.load(state.prefs.locale)
+    .then(function(localeData) {
+      state.strings     = localeData.strings;
+      state.dateStrings = localeData.date;
+    })
+    .catch(function() {
+      state.strings     = {};
+      state.dateStrings = null;
+    })
+    .then(function() {
+      return VideoManager.init();
+    })
+    .then(function() {
+      SettingsManager.attachListeners();
+      PlayerManager.attachEvents();
+      StallManager.start();
+      return PlayerManager.start();
+    })
+    .then(function() {
+      ClockManager.start();
+      InputManager.init();
+      if (dom.hintToggle) dom.hintToggle.checked = state.prefs.showHint;
+      HintManager.show();
+      DebugManager.log('Ready');
+    })
+    .catch(function(e) {
+      DebugManager.log('Init failed: ' + (e && e.message ? e.message : e));
+    });
 }
 
-// Kick off once DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {

@@ -1,7 +1,12 @@
 /* ─────────────────────────────────────────────
    AERIAL SCREENSAVER — styles.css
-   Aesthetic: cinematic editorial, ultra-refined
-   Fonts: Cormorant Garamond (display) + Josefin Sans (UI)
+   Chromium 79+ compatible build:
+     • No `inset` shorthand  → explicit top/right/bottom/left
+     • -webkit-backdrop-filter prefix added
+     • :has() selector removed (not in Cr79/87) → replaced with JS .has-toggle class
+     • flex `gap` removed (Chrome 84+) → replaced with `> * + *` margin selectors
+     • All other selectors/properties verified against Chrome 79 baseline
+     • clamp() / min() / max() arrived exactly in Chrome 79 — safe to use
 ───────────────────────────────────────────── */
 
 :root {
@@ -15,23 +20,21 @@
   --black-60:   rgba(0,0,0,0.60);
   --black-20:   rgba(0,0,0,0.20);
 
-  --modal-bg:   rgba(12,12,14,0.92);
+  --modal-bg:     rgba(12,12,14,0.92);
   --modal-border: rgba(255,255,255,0.08);
-  --accent:     rgba(255,255,255,0.70);
+  --accent:       rgba(255,255,255,0.70);
 
   --font-display: 'Cormorant Garamond', Georgia, serif;
   --font-ui:      'Josefin Sans', sans-serif;
-  --font-active:  'Josefin Sans', sans-serif;  /* runtime-switchable font for all OSD + UI */
+  --font-active:  'Josefin Sans', sans-serif;
 
-  --fade-duration: 3000ms;
-  --overlay-padding: 48px;
+  --fade-duration:    6000ms;
+  --overlay-padding:  clamp(24px, 3.5vw, 64px);
 
-  /* OSD opacity — controlled independently per group (0.0–1.0) */
-  --osd-title-opacity: 0.80;   /* title */
-  --osd-poi-opacity:   0.80;   /* POI subtitle */
-  --osd-clock-opacity: 0.80;   /* clock + date */
+  --osd-title-opacity: 0.80;
+  --osd-poi-opacity:   0.80;
+  --osd-clock-opacity: 0.80;
 
-  /* OSD size scales — multiplied against clamp() base sizes */
   --title-scale: 1;
   --poi-scale:   1;
   --clock-scale: 1;
@@ -43,28 +46,29 @@ html, body {
   width: 100%; height: 100%;
   overflow: hidden;
   background: #000;
-  cursor: none; /* full screensaver feel */
+  cursor: none;
 }
 
-/* Show cursor when settings is open */
 body.settings-open { cursor: default; }
 
 /* ── VIDEO LAYER ── */
 #video-container {
   position: fixed;
-  inset: 0;
+  /* inset: 0 — not in Cr87, use explicit 4-sided declaration */
+  top: 0; right: 0; bottom: 0; left: 0;
   z-index: 0;
 }
 
 .aerial-video {
   position: absolute;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  transition: opacity var(--fade-duration) ease-in-out;
-  /* GPU hint */
+  /* No transition needed — BlackoutManager overlay handles all visual fading.
+     Instant switch while under black = zero freeze frames. */
+  transition: none;
   will-change: opacity;
 }
 
@@ -73,18 +77,16 @@ body.settings-open { cursor: default; }
 /* ── VIGNETTE ── */
 #vignette {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   z-index: 1;
   pointer-events: none;
   background:
-    /* bottom gradient for text legibility */
     linear-gradient(
       to top,
       rgba(0,0,0,0.65) 0%,
       rgba(0,0,0,0.20) 30%,
       transparent 60%
     ),
-    /* top fade */
     linear-gradient(
       to bottom,
       rgba(0,0,0,0.30) 0%,
@@ -92,12 +94,7 @@ body.settings-open { cursor: default; }
     );
 }
 
-/* ── OSD OVERLAYS ──
-   Each overlay group (#overlay-left = title+POI, #overlay-right = clock+date)
-   is independently positioned via data-title-corner / data-clock-corner on <html>.
-   Values: top-left | top-right | bottom-left | bottom-right
-──────────────────────────────────────────── */
-
+/* ── OSD OVERLAYS ── */
 #overlay-left,
 #overlay-right {
   position: fixed;
@@ -106,27 +103,25 @@ body.settings-open { cursor: default; }
   max-width: 55vw;
 }
 
-/* ── TITLE+POI corners ── */
-:root[data-title-corner="bottom-left"]  #overlay-left { bottom: var(--overlay-padding); left:  var(--overlay-padding); text-align: left;  }
-:root[data-title-corner="bottom-right"] #overlay-left { bottom: var(--overlay-padding); right: var(--overlay-padding); text-align: right; left: unset; }
-:root[data-title-corner="top-left"]     #overlay-left { top:    var(--overlay-padding); left:  var(--overlay-padding); text-align: left;  }
-:root[data-title-corner="top-right"]    #overlay-left { top:    var(--overlay-padding); right: var(--overlay-padding); text-align: right; left: unset; }
+/* Title+POI corners */
+:root[data-title-corner="bottom-left"]  #overlay-left { bottom: var(--overlay-padding); left:  var(--overlay-padding); right: auto; top: auto; text-align: left;  }
+:root[data-title-corner="bottom-right"] #overlay-left { bottom: var(--overlay-padding); right: var(--overlay-padding); left: auto; top: auto; text-align: right; }
+:root[data-title-corner="top-left"]     #overlay-left { top:    var(--overlay-padding); left:  var(--overlay-padding); right: auto; bottom: auto; text-align: left;  }
+:root[data-title-corner="top-right"]    #overlay-left { top:    var(--overlay-padding); right: var(--overlay-padding); left: auto; bottom: auto; text-align: right; }
 
-/* ── CLOCK+DATE corners ── */
-:root[data-clock-corner="bottom-left"]  #overlay-right { bottom: var(--overlay-padding); left:  var(--overlay-padding); text-align: left;  right: unset; }
-:root[data-clock-corner="bottom-right"] #overlay-right { bottom: var(--overlay-padding); right: var(--overlay-padding); text-align: right; }
-:root[data-clock-corner="top-left"]     #overlay-right { top:    var(--overlay-padding); left:  var(--overlay-padding); text-align: left;  right: unset; }
-:root[data-clock-corner="top-right"]    #overlay-right { top:    var(--overlay-padding); right: var(--overlay-padding); text-align: right; }
+/* Clock+Date corners */
+:root[data-clock-corner="bottom-left"]  #overlay-right { bottom: var(--overlay-padding); left:  var(--overlay-padding); right: auto; top: auto; text-align: left;  }
+:root[data-clock-corner="bottom-right"] #overlay-right { bottom: var(--overlay-padding); right: var(--overlay-padding); left: auto; top: auto; text-align: right; }
+:root[data-clock-corner="top-left"]     #overlay-right { top:    var(--overlay-padding); left:  var(--overlay-padding); right: auto; bottom: auto; text-align: left;  }
+:root[data-clock-corner="top-right"]    #overlay-right { top:    var(--overlay-padding); right: var(--overlay-padding); left: auto; bottom: auto; text-align: right; }
 
-/* Mirror clock text-align into its children */
 #overlay-right #clock,
 #overlay-right #dateline { text-align: inherit; }
-
 
 /* Video title */
 #video-title {
   font-family: var(--font-active);
-  font-size: calc(clamp(1.4rem, 3vw, 2.4rem) * var(--title-scale));
+  font-size: calc(clamp(1.8vw, max(1.8vw, 2.2vh), 3.2vw) * var(--title-scale));
   font-weight: 300;
   font-style: italic;
   color: var(--white-80);
@@ -134,27 +129,35 @@ body.settings-open { cursor: default; }
   line-height: 1.2;
   text-shadow: 0 2px 24px rgba(0,0,0,0.6);
   opacity: var(--osd-title-opacity);
-  transition: opacity 600ms ease;
+  transition: opacity 1200ms ease;
+}
+
+#video-title.osd-hidden {
+  opacity: 0 !important;
+  transition: opacity 1200ms ease;
 }
 
 #poi-text {
   font-family: var(--font-active);
-  font-size: calc(clamp(0.75rem, 1.3vw, 1.1rem) * var(--poi-scale));
+  font-size: calc(clamp(0.9vw, max(0.9vw, 1.1vh), 1.6vw) * var(--poi-scale));
   font-weight: 300;
   font-style: italic;
   letter-spacing: 0.02em;
   text-transform: none;
   color: var(--white-50);
-  margin-bottom: 10px;
+  margin-bottom: 0.6vw;
   min-height: 1.2em;
   opacity: var(--osd-poi-opacity);
-  transition: opacity 600ms ease, transform 600ms ease;
+  transition: opacity 1200ms ease, transform 1200ms ease;
   transform: translateY(0);
   animation: none;
 }
 
-/* poi-enter: slide up into place — opacity is handled by transition on the element,
-   NOT by the keyframe, so --osd-poi-opacity is never overridden */
+#poi-text.osd-hidden {
+  opacity: 0 !important;
+  transition: opacity 1200ms ease, transform 1200ms ease;
+}
+
 #poi-text.poi-enter {
   animation: poiSlideIn 600ms ease forwards;
 }
@@ -167,27 +170,38 @@ body.settings-open { cursor: default; }
 /* Clock */
 #clock {
   font-family: var(--font-active);
-  font-size: calc(clamp(2.2rem, 5vw, 4rem) * var(--clock-scale));
+  font-size: calc(clamp(3.5vw, max(3.5vw, 4.5vh), 6.5vw) * var(--clock-scale));
   font-weight: 300;
   letter-spacing: 0.03em;
   color: var(--white-80);
   text-shadow: 0 2px 24px rgba(0,0,0,0.4);
   line-height: 1;
   opacity: var(--osd-clock-opacity);
-  transition: opacity 100ms;
+  transition: opacity 1200ms ease;
+}
+
+#clock.osd-hidden {
+  opacity: 0 !important;
+  transition: opacity 1200ms ease;
 }
 
 /* Date */
 #dateline {
   font-family: var(--font-active);
-  font-size: calc(clamp(0.65rem, 1vw, 0.85rem) * var(--clock-scale));
+  font-size: calc(clamp(0.7vw, max(0.7vw, 0.9vh), 1.2vw) * var(--clock-scale));
   font-weight: 300;
   font-style: italic;
   letter-spacing: 0.08em;
   color: var(--white-50);
-  margin-top: 8px;
+  margin-top: 0.5vw;
   text-align: right;
   opacity: var(--osd-clock-opacity);
+  transition: opacity 1200ms ease;
+}
+
+#dateline.osd-hidden {
+  opacity: 0 !important;
+  transition: opacity 1200ms ease;
 }
 
 /* ── DEBUG OVERLAY ── */
@@ -201,22 +215,28 @@ body.settings-open { cursor: default; }
   border-radius: 4px;
   padding: 16px 20px;
   min-width: 340px;
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 
 .debug-row {
+  display: -webkit-flex;
   display: flex;
-  gap: 16px;
+  /* gap: 16px — not supported until Chrome 84; use margin instead */
   margin-bottom: 6px;
   font-family: 'Courier New', monospace;
   font-size: 0.7rem;
   line-height: 1.5;
+}
+.debug-row > * + * {
+  margin-left: 16px;
 }
 
 .debug-label {
   color: rgba(255,255,255,0.35);
   letter-spacing: 0.1em;
   min-width: 90px;
+  -webkit-flex-shrink: 0;
   flex-shrink: 0;
 }
 
@@ -233,12 +253,16 @@ body.settings-open { cursor: default; }
 /* ── SETTINGS MODAL ── */
 #settings-overlay {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   z-index: 100;
   background: rgba(0,0,0,0.50);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-justify-content: center;
   justify-content: center;
   cursor: default;
   opacity: 1;
@@ -255,20 +279,23 @@ body.settings-open { cursor: default; }
   border-radius: 12px;
   padding: 0;
   width: min(480px, 92vw);
-  /* scrollable when content taller than viewport */
   max-height: 88vh;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
   box-shadow: 0 40px 80px rgba(0,0,0,0.8);
+  -webkit-animation: modalIn 250ms cubic-bezier(0.34,1.56,0.64,1) forwards;
   animation: modalIn 250ms cubic-bezier(0.34,1.56,0.64,1) forwards;
 }
 
-/* Thin scrollbar so it doesn't look ugly */
 #settings-modal::-webkit-scrollbar { width: 3px; }
 #settings-modal::-webkit-scrollbar-track { background: transparent; }
 #settings-modal::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
 
+@-webkit-keyframes modalIn {
+  from { opacity: 0; -webkit-transform: scale(0.92) translateY(12px); transform: scale(0.92) translateY(12px); }
+  to   { opacity: 1; -webkit-transform: scale(1) translateY(0); transform: scale(1) translateY(0); }
+}
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.92) translateY(12px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
@@ -277,6 +304,7 @@ body.settings-open { cursor: default; }
 /* ── Mobile: slide up as a bottom sheet ── */
 @media (max-width: 500px) {
   #settings-overlay {
+    -webkit-align-items: flex-end;
     align-items: flex-end;
     padding: 0;
   }
@@ -288,7 +316,12 @@ body.settings-open { cursor: default; }
     border-left: none;
     border-right: none;
     border-bottom: none;
+    -webkit-animation: modalInMobile 280ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
     animation: modalInMobile 280ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+  @-webkit-keyframes modalInMobile {
+    from { opacity: 0; -webkit-transform: translateY(100%); transform: translateY(100%); }
+    to   { opacity: 1; -webkit-transform: translateY(0); transform: translateY(0); }
   }
   @keyframes modalInMobile {
     from { opacity: 0; transform: translateY(100%); }
@@ -297,12 +330,15 @@ body.settings-open { cursor: default; }
 }
 
 #settings-header {
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-justify-content: space-between;
   justify-content: space-between;
   padding: 20px 24px 16px;
   border-bottom: 1px solid var(--modal-border);
-  /* stays visible while scrolling */
+  position: -webkit-sticky;
   position: sticky;
   top: 0;
   background: var(--modal-bg);
@@ -311,26 +347,25 @@ body.settings-open { cursor: default; }
 
 #settings-title {
   font-family: var(--font-ui);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 300;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--white-50);
+  color: var(--white-80);
 }
 
 #settings-close {
   background: none;
   border: none;
   color: var(--white-50);
-  cursor: pointer;
   font-size: 1rem;
+  cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
-  transition: color 150ms, background 150ms;
-  font-family: var(--font-ui);
+  transition: color 150ms;
   line-height: 1;
 }
-#settings-close:hover { color: var(--white); background: var(--white-10); }
+#settings-close:hover { color: var(--white-80); }
 
 .settings-section {
   padding: 16px 24px;
@@ -340,21 +375,26 @@ body.settings-open { cursor: default; }
 
 .settings-section-title {
   font-family: var(--font-ui);
-  font-size: 0.58rem;
+  font-size: 0.60rem;
   font-weight: 300;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--white-25);
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .settings-row {
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-justify-content: space-between;
   justify-content: space-between;
-  gap: 12px;
+  /* gap: 12px — not supported until Chrome 84 */
   margin-bottom: 12px;
-  flex-wrap: wrap;
+}
+.settings-row > * + * {
+  margin-left: 12px;
 }
 .settings-row:last-child { margin-bottom: 0; }
 
@@ -364,6 +404,7 @@ body.settings-open { cursor: default; }
   font-weight: 300;
   color: var(--white-80);
   letter-spacing: 0.04em;
+  -webkit-flex: 1;
   flex: 1;
   min-width: 0;
 }
@@ -379,6 +420,7 @@ select {
   font-weight: 300;
   padding: 8px 28px 8px 12px;
   cursor: pointer;
+  -webkit-appearance: none;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.4)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -389,15 +431,15 @@ select {
 }
 select:hover  { border-color: rgba(255,255,255,0.25); }
 select:focus  { outline: none; border-color: rgba(255,255,255,0.40); }
-select option { background: #1a1a1f; color: #fff; }
+select option  { background: #1a1a1f; color: #fff; }
+select optgroup { background: #1a1a1f; color: rgba(255,255,255,0.35); font-size: 0.68rem; letter-spacing: 0.08em; }
 
 @media (max-width: 500px) {
   select { min-width: 0; width: 100%; }
-  /* On mobile the row wraps: label takes full width, control below */
-  .settings-row { flex-direction: column; align-items: flex-start; }
+  .settings-row { -webkit-flex-direction: column; flex-direction: column; -webkit-align-items: flex-start; align-items: flex-start; }
   .settings-row label:first-child { min-width: unset; }
-  /* Keep toggle rows horizontal */
-  .settings-row:has(.toggle-wrap) { flex-direction: row; align-items: center; }
+  /* Toggle rows stay horizontal — JS adds .has-toggle class (replaces :has() which Cr87 lacks) */
+  .settings-row.has-toggle { -webkit-flex-direction: row; flex-direction: row; -webkit-align-items: center; align-items: center; }
 }
 
 /* Toggle switch */
@@ -413,7 +455,7 @@ select option { background: #1a1a1f; color: #fff; }
 }
 .toggle-label {
   position: absolute;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background: rgba(255,255,255,0.15);
   border-radius: 12px;
   cursor: pointer;
@@ -426,12 +468,13 @@ select option { background: #1a1a1f; color: #fff; }
   width: 18px; height: 18px;
   border-radius: 50%;
   background: var(--white-50);
-  transition: transform 200ms, background 200ms;
+  transition: -webkit-transform 200ms, transform 200ms, background 200ms;
 }
 .toggle-wrap input:checked + .toggle-label {
   background: rgba(255,255,255,0.35);
 }
 .toggle-wrap input:checked + .toggle-label::after {
+  -webkit-transform: translateX(20px);
   transform: translateX(20px);
   background: var(--white);
 }
@@ -444,7 +487,7 @@ select option { background: #1a1a1f; color: #fff; }
   color: var(--white-25);
   border-top: 1px solid var(--modal-border);
   text-align: center;
-  /* sticky at bottom so always visible */
+  position: -webkit-sticky;
   position: sticky;
   bottom: 0;
   background: var(--modal-bg);
@@ -452,7 +495,6 @@ select option { background: #1a1a1f; color: #fff; }
 
 @media (max-width: 500px) {
   #settings-hint { font-size: 0.56rem; letter-spacing: 0.04em; padding: 10px 16px; }
-  /* drag handle visual for bottom sheet */
   #settings-modal::before {
     content: '';
     display: block;
@@ -478,6 +520,7 @@ kbd {
   position: fixed;
   top: 50%;
   left: 50%;
+  -webkit-transform: translate(-50%, -50%) scale(0);
   transform: translate(-50%, -50%) scale(0);
   width: 80px;
   height: 80px;
@@ -487,7 +530,12 @@ kbd {
   pointer-events: none;
 }
 #skip-ripple.animate {
+  -webkit-animation: ripple 500ms ease-out forwards;
   animation: ripple 500ms ease-out forwards;
+}
+@-webkit-keyframes ripple {
+  from { -webkit-transform: translate(-50%,-50%) scale(0); transform: translate(-50%,-50%) scale(0); opacity: 1; }
+  to   { -webkit-transform: translate(-50%,-50%) scale(3); transform: translate(-50%,-50%) scale(3); opacity: 0; }
 }
 @keyframes ripple {
   from { transform: translate(-50%,-50%) scale(0); opacity: 1; }
@@ -496,11 +544,17 @@ kbd {
 
 /* ── OSD OPACITY SLIDER ── */
 .slider-wrap {
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: center;
   align-items: center;
-  gap: 10px;
+  /* gap: 10px — not supported until Chrome 84 */
+  -webkit-flex: 1;
   flex: 1;
   min-width: 0;
+}
+.slider-wrap > * + * {
+  margin-left: 10px;
 }
 
 .slider-wrap span {
@@ -510,12 +564,14 @@ kbd {
   color: var(--white-50);
   min-width: 32px;
   text-align: right;
+  -webkit-flex-shrink: 0;
   flex-shrink: 0;
 }
 
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
+  -webkit-flex: 1;
   flex: 1;
   min-width: 80px;
   height: 2px;
@@ -529,6 +585,7 @@ input[type="range"] {
   .slider-wrap { width: 100%; }
   input[type="range"] { min-width: 0; }
 }
+
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
@@ -536,9 +593,13 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 50%;
   background: var(--white);
   cursor: pointer;
+  transition: -webkit-transform 150ms;
   transition: transform 150ms;
 }
-input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+input[type="range"]::-webkit-slider-thumb:hover {
+  -webkit-transform: scale(1.2);
+  transform: scale(1.2);
+}
 input[type="range"]::-moz-range-thumb {
   width: 14px;
   height: 14px;
@@ -559,6 +620,7 @@ input[type="range"]::-moz-range-thumb {
   position: fixed;
   bottom: 28px;
   left: 50%;
+  -webkit-transform: translateX(-50%);
   transform: translateX(-50%);
   z-index: 20;
   font-family: var(--font-ui);
@@ -573,7 +635,7 @@ input[type="range"]::-moz-range-thumb {
   padding: 7px 18px;
   pointer-events: none;
   white-space: nowrap;
-  /* fade in then out */
+  -webkit-animation: hintLifecycle 5s ease forwards;
   animation: hintLifecycle 5s ease forwards;
 }
 
@@ -581,6 +643,12 @@ input[type="range"]::-moz-range-thumb {
   color: rgba(255,255,255,0.65);
 }
 
+@-webkit-keyframes hintLifecycle {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
 @keyframes hintLifecycle {
   0%   { opacity: 0; }
   12%  { opacity: 1; }
@@ -593,8 +661,8 @@ input[type="range"]::-moz-range-thumb {
 /* ── STALL BLACKOUT ── */
 #stall-blackout {
   position: fixed;
-  inset: 0;
-  z-index: 15;          /* above video AND overlays — full blank screen */
+  top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 15;
   background: #000;
   opacity: 0;
   pointer-events: none;
@@ -609,15 +677,13 @@ input[type="range"]::-moz-range-thumb {
 /* ── RESPONSIVE ── */
 @media (max-width: 600px) {
   :root {
-    --overlay-padding: 24px;
+    --overlay-padding: clamp(14px, 4vw, 28px);
   }
-  #overlay-left { max-width: 80vw; }
+  #overlay-left  { max-width: 80vw; }
   #debug-overlay { min-width: unset; max-width: 90vw; }
 }
 
-/* ── D-PAD / REMOTE FOCUS STYLES ──
-   High-visibility ring so TV viewers can track focus
-────────────────────────────────────────────── */
+/* ── D-PAD / REMOTE FOCUS STYLES ── */
 #settings-modal select:focus,
 #settings-modal input[type="range"]:focus,
 #settings-modal input[type="checkbox"]:focus + .toggle-label,
@@ -641,21 +707,20 @@ input[type="range"]::-moz-range-thumb {
   font-style: italic;
 }
 
-/* ── POI ORDER — data attribute on <html> ──
-   [data-poi-order="above"]: poi is first child (above title) — default DOM order
-   [data-poi-order="below"]: swap so title appears above poi
-────────────────────────────────────────────── */
+/* ── POI ORDER ── */
 #overlay-left {
+  display: -webkit-flex;
   display: flex;
+  -webkit-flex-direction: column;
   flex-direction: column;
 }
 
-/* Default (below): poi stays below title — reverse the DOM order visually */
 [data-poi-order="below"] #overlay-left {
+  -webkit-flex-direction: column-reverse;
   flex-direction: column-reverse;
 }
 
-/* above: poi above title — normal DOM order (poi is first in DOM) */
 [data-poi-order="above"] #overlay-left {
+  -webkit-flex-direction: column;
   flex-direction: column;
 }

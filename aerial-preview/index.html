@@ -8,7 +8,7 @@
   <!-- Google Fonts: editorial elegance -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Josefin+Sans:wght@100;300&family=Playfair+Display:ital,wght@0,300;1,300&family=DM+Serif+Display:ital@0;1&family=Outfit:wght@200;300&family=Space+Grotesk:wght@300;400&family=Lato:ital,wght@0,300;1,300&family=Raleway:ital,wght@0,200;0,300;1,200&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Josefin+Sans:wght@100;300&family=Playfair+Display:ital,wght@0,300;1,300&family=DM+Serif+Display:ital@0;1&family=Outfit:wght@200;300&family=Space+Grotesk:wght@300;400&family=Lato:ital,wght@0,300;1,300&family=Raleway:ital,wght@0,200;0,300;1,200&family=EB+Garamond:ital,wght@0,300;1,300&family=Libre+Baskerville:ital,wght@0,400;1,400&family=Cinzel:wght@300;400&family=Italiana&family=Tenor+Sans&family=Nunito:ital,wght@0,200;0,300;1,200&family=Quicksand:wght@300;400&family=Montserrat:ital,wght@0,200;0,300;1,200&family=Inter:wght@200;300&family=Unbounded:wght@200;300&family=Bodoni+Moda:ital,wght@0,400;1,400&display=swap" rel="stylesheet" />
 </head>
 <body>
 
@@ -161,14 +161,31 @@
         <div class="settings-row">
           <label for="font-select">Display Font</label>
           <select id="font-select">
-            <option value="Josefin Sans">Josefin Sans</option>
-            <option value="Cormorant Garamond">Cormorant Garamond</option>
-            <option value="Playfair Display">Playfair Display</option>
-            <option value="DM Serif Display">DM Serif Display</option>
-            <option value="Outfit">Outfit</option>
-            <option value="Space Grotesk">Space Grotesk</option>
-            <option value="Lato">Lato</option>
-            <option value="Raleway">Raleway</option>
+            <optgroup label="── Elegant Serif">
+              <option value="Cormorant Garamond">Cormorant Garamond</option>
+              <option value="Playfair Display">Playfair Display</option>
+              <option value="DM Serif Display">DM Serif Display</option>
+              <option value="EB Garamond">EB Garamond</option>
+              <option value="Libre Baskerville">Libre Baskerville</option>
+              <option value="Bodoni Moda">Bodoni Moda</option>
+              <option value="Cinzel">Cinzel</option>
+              <option value="Italiana">Italiana</option>
+            </optgroup>
+            <optgroup label="── Clean Sans-Serif">
+              <option value="Josefin Sans" selected>Josefin Sans</option>
+              <option value="Tenor Sans">Tenor Sans</option>
+              <option value="Raleway">Raleway</option>
+              <option value="Outfit">Outfit</option>
+              <option value="Nunito">Nunito</option>
+              <option value="Quicksand">Quicksand</option>
+              <option value="Montserrat">Montserrat</option>
+              <option value="Inter">Inter</option>
+              <option value="Lato">Lato</option>
+            </optgroup>
+            <optgroup label="── Modern / Display">
+              <option value="Space Grotesk">Space Grotesk</option>
+              <option value="Unbounded">Unbounded</option>
+            </optgroup>
           </select>
         </div>
         <div id="font-preview">The quick brown fox — 12:34 · Wednesday</div>
