@@ -13,6 +13,8 @@ button{cursor:pointer}button:hover{border-color:#666}button:disabled{opacity:.4;
 main{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;padding:20px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}.card.ch{border-color:#ffb86b}.card.nt{border-color:#ff4d6d;box-shadow:0 0 0 1px #ff4d6d}
 .card.nt .v::after{content:'NO TAG';position:absolute;left:10px;top:10px;z-index:2;padding:3px 10px;border-radius:99px;background:#ff4d6d;color:#fff;font-size:12px;font-weight:700;letter-spacing:.06em;pointer-events:none}
+.card.ok{border-color:#34c759;box-shadow:0 0 0 1px #34c759}
+.vb{width:100%;margin-top:8px;font-weight:600}.card.ok .vb{background:#1f7a3a;border-color:#34c759;color:#fff}
 .card.nt .t{outline:2px dashed #ff4d6d;outline-offset:4px;border-radius:6px}
 .v{position:relative;aspect-ratio:16/9;background:#000 center/cover no-repeat}.v video{width:100%;height:100%;display:block;background:#000}
 .v .go{position:absolute;inset:0;width:100%;border:0;border-radius:0;background:rgba(0,0,0,.35);font-size:16px}.v .go:hover{background:rgba(0,0,0,.15)}
@@ -25,9 +27,9 @@ main{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:
 .t [data-t=day].on{background:#c79a1a}.t [data-t=sunrise].on{background:#e07b3a}.t [data-t=sunset].on{background:#c2453a}.t [data-t=night].on{background:#4a56d6}
 </style></head><body>
 <header><div class="row"><h1>timeOfDay editor</h1><span id="sum"></span><span class="sp"></span><span id="chg"></span>
-<button id="dlv" disabled>Download videos.json</button><button id="dlc" disabled>Download changes</button><button id="rst" disabled>Reset edits</button>
+<button id="dlv" disabled>Download videos.json</button><button id="dlc" disabled>Download changes</button><button id="rst" disabled>Reset edits</button><button id="rv" disabled>Reset validation</button>
 <button id="imp" disabled>Import tags…</button><button id="open">Open local file…</button><input id="file" type="file" accept=".json" hidden><input id="tfile" type="file" accept=".json" hidden></div>
-<div class="row"><input id="q" placeholder="Search: name, id, description"><select id="ft"><option value="">Any tag</option><option>day</option><option>sunrise</option><option>sunset</option><option>night</option><option value="@none">No tag</option><option value="@ch">Changed</option></select>
+<div class="row"><input id="q" placeholder="Search: name, id, description"><select id="ft"><option value="">Any tag</option><option>day</option><option>sunrise</option><option>sunset</option><option>night</option><option value="@none">No tag</option><option value="@ch">Changed</option><option value="@todo">Not validated</option><option value="@ok">Validated</option></select>
 <select id="fs"><option value="">All sources</option></select><select id="fc"><option value="">All categories</option></select><span id="shown"></span></div></header>
 <div id="st">Loading videos.json…</div><main id="g"></main>
 <script>
@@ -36,11 +38,12 @@ const SRC={videos:BASE+'videos.json',locales:BASE+'locales/'}, LOCALE='en-GB.jso
 // thumbnails: the branch first; the new-videos-json branch has no tn/ folder yet, so main is the fallback
 const TN_BASES=[BASE+'tn/',BASE.replace('refs/heads/new-videos-json','refs/heads/main')+'tn/']; let TN='';
 const TAGS=['day','sunrise','sunset','night'], ORDER=['url-1080-H264','url-1080-SDR','url-4K-SDR','url-4K-SDR-240FPS','url-1080-HDR','url-4K-HDR'];
-let RAW='',DATA=[],byId={},cards={},ed={};
+let RAW='',DATA=[],byId={},cards={},ed={},va=[];   // va: validated ids, in the order they were validated
 try{ed=JSON.parse(localStorage.getItem('tod_edits')||'{}')}catch(e){}
+try{va=JSON.parse(localStorage.getItem('tod_valid')||'[]')}catch(e){}
 const $=s=>document.querySelector(s), g=$('#g'), st=$('#st');
 const cur=d=>ed[d.id]!==undefined?ed[d.id]:d.t;
-const save=()=>{try{localStorage.setItem('tod_edits',JSON.stringify(ed))}catch(e){}};
+const save=()=>{try{localStorage.setItem('tod_edits',JSON.stringify(ed));localStorage.setItem('tod_valid',JSON.stringify(va))}catch(e){}};
 function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
 const strip=a=>a.replace('AerialCategory','').replace('AerialSubcategory','');
 async function get(url,text){const r=await fetch(url);if(!r.ok)throw new Error(url+' → HTTP '+r.status);return text?r.text():r.json()}
@@ -66,10 +69,11 @@ function load(V,S){
     u:ORDER.filter(k=>a[k]).map(k=>[k.slice(4),a[k]])}));
   byId={};DATA.forEach(d=>byId[d.id]=d);
   Object.keys(ed).forEach(k=>{if(!byId[k]||ed[k]===byId[k].t)delete ed[k]});
+  va=va.filter(id=>byId[id]&&cur(byId[id]));   // only tagged, existing assets stay validated
   g.innerHTML='';cards={};
   [['#fs',DATA.map(d=>d.s)],['#fc',DATA.map(d=>d.c)]].forEach(([s,v])=>{const e=$(s);e.length=1;[...new Set(v)].filter(Boolean).sort().forEach(x=>e.append(Object.assign(el('option','',x),{value:x})))});
   DATA.forEach(d=>g.append(cards[d.id]=build(d)));
-  st.style.display='none';['dlv','dlc','rst','imp'].forEach(i=>$('#'+i).disabled=false);stats();filter();
+  reorder();st.style.display='none';['dlv','dlc','rst','rv','imp'].forEach(i=>$('#'+i).disabled=false);stats();filter();
 }
 function play(c,d,i){const v=c.querySelector('.v');v.innerHTML='';const x=document.createElement('video');
   x.controls=x.loop=x.muted=x.autoplay=true;x.src=d.u[i][1];
@@ -83,16 +87,23 @@ function build(d){const c=el('div','card'),v=el('div','v'),go=el('button','go','
   const vr=el('div','vr');d.u.forEach((u,i)=>{const x=el('button','',u[0]);x.onclick=()=>play(c,d,i);vr.append(x)});
   if(d.u.length)vr.append(Object.assign(el('a','','↗ link'),{href:d.u[0][1],target:'_blank',rel:'noopener'}));
   const t=el('div','t');TAGS.forEach(k=>{const x=el('button','',k);x.dataset.t=k;x.onclick=()=>pick(d,k);t.append(x)});
-  b.append(el('div','nm',d.nm),poi,id,m,vr,t);c.append(v,b);mark(c,d);return c}
+  const vb=el('button','vb');vb.onclick=()=>validate(d);
+  b.append(el('div','nm',d.nm),poi,id,m,vr,t,vb);c.append(v,b);mark(c,d);return c}
+// Validated cards move to the end of the grid (the DOM only: the order inside videos.json never changes)
+function reorder(){const ok=new Set(va);DATA.forEach(d=>{if(!ok.has(d.id))g.append(cards[d.id])});va.forEach(id=>g.append(cards[id]))}
+function validate(d){const i=va.indexOf(d.id);if(i>=0)va.splice(i,1);else if(cur(d))va.push(d.id);else return;
+  save();mark(cards[d.id],d);reorder();stats();filter()}
 function pick(d,k){if(k===cur(d)||k===d.t)delete ed[d.id];else ed[d.id]=k;save();mark(cards[d.id],d);stats();filter()}
 function mark(c,d){const x=cur(d),ch=ed[d.id]!==undefined;c.classList.toggle('ch',ch);c.classList.toggle('nt',!x);
+  const ok=va.includes(d.id),vb=c.querySelector('.vb');c.classList.toggle('ok',ok);vb.disabled=!x&&!ok;
+  vb.textContent=ok?'✓ Validated — click to undo':x?'Validate':'Validate (set a tag first)';
   c.querySelectorAll('.t button').forEach(b=>b.classList.toggle('on',b.dataset.t===x));
   c.querySelector('.was').textContent=ch?'was: '+(d.t||'none'):''}
 function stats(){const n={};DATA.forEach(d=>{const x=cur(d)||'none';n[x]=(n[x]||0)+1});
-  $('#sum').textContent=DATA.length+' videos · '+TAGS.concat('none').filter(k=>n[k]).map(k=>k+' '+n[k]).join(' · ');
+  $('#sum').textContent=DATA.length+' videos · '+TAGS.concat('none').filter(k=>n[k]).map(k=>k+' '+n[k]).join(' · ')+' · validated '+va.length+'/'+DATA.length;
   const k=Object.keys(ed).length;$('#chg').textContent=k?'Changed: '+k:''}
 function filter(){const q=$('#q').value.trim().toLowerCase(),ft=$('#ft').value,fs=$('#fs').value,fc=$('#fc').value;let n=0;
-  DATA.forEach(d=>{const ok=(!ft||(ft==='@ch'?ed[d.id]!==undefined:ft==='@none'?!cur(d):cur(d)===ft))&&(!fs||d.s===fs)&&(!fc||d.c===fc)&&
+  DATA.forEach(d=>{const ok=(!ft||(ft==='@ch'?ed[d.id]!==undefined:ft==='@none'?!cur(d):ft==='@ok'?va.includes(d.id):ft==='@todo'?!va.includes(d.id):cur(d)===ft))&&(!fs||d.s===fs)&&(!fc||d.c===fc)&&
     (!q||(d.nm+' '+d.id+' '+d.p.join(' ')).toLowerCase().includes(q));cards[d.id].style.display=ok?'':'none';if(ok)n++});
   $('#shown').textContent='Shown: '+n}
 
@@ -117,6 +128,7 @@ function dl(name,txt){const a=document.createElement('a');a.href=URL.createObjec
 $('#dlv').onclick=()=>{try{dl('videos.json',patched())}catch(e){alert(e.message)}};
 $('#dlc').onclick=()=>dl('tags.json',JSON.stringify(ed,null,2));
 $('#rst').onclick=()=>{if(Object.keys(ed).length&&confirm('Reset all edits?')){ed={};save();DATA.forEach(d=>mark(cards[d.id],d));stats();filter()}};
+$('#rv').onclick=()=>{if(va.length&&confirm('Reset validation of all cards?')){va=[];save();DATA.forEach(d=>mark(cards[d.id],d));reorder();stats();filter()}};
 $('#open').onclick=()=>$('#file').click();
 // a {id: tag} file (e.g. tags.json / timeOfDay-all.json): every tag that differs from the loaded videos.json becomes an edit
 $('#imp').onclick=()=>$('#tfile').click();
