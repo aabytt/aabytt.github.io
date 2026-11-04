@@ -11,7 +11,9 @@ select,button,input{background:#222228;color:#eee;border:1px solid var(--line);b
 button{cursor:pointer}button:hover{border-color:#666}button:disabled{opacity:.4;cursor:default}input{min-width:260px}.sp{flex:1}
 #chg{color:#ffb86b;font-weight:600}#st{padding:40px 20px;color:var(--mut);text-align:center}#st.err{color:#ffb4a8}
 main{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;padding:20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}.card.ch{border-color:#ffb86b}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}.card.ch{border-color:#ffb86b}.card.nt{border-color:#ff4d6d;box-shadow:0 0 0 1px #ff4d6d}
+.card.nt .v::after{content:'NO TAG';position:absolute;left:10px;top:10px;z-index:2;padding:3px 10px;border-radius:99px;background:#ff4d6d;color:#fff;font-size:12px;font-weight:700;letter-spacing:.06em;pointer-events:none}
+.card.nt .t{outline:2px dashed #ff4d6d;outline-offset:4px;border-radius:6px}
 .v{position:relative;aspect-ratio:16/9;background:#000 center/cover no-repeat}.v video{width:100%;height:100%;display:block;background:#000}
 .v .go{position:absolute;inset:0;width:100%;border:0;border-radius:0;background:rgba(0,0,0,.35);font-size:16px}.v .go:hover{background:rgba(0,0,0,.15)}
 .v .err{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;background:rgba(0,0,0,.8);color:#ffb4a8;font-size:13px}
@@ -30,7 +32,9 @@ main{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:
 <div id="st">Loading videos.json…</div><main id="g"></main>
 <script>
 const BASE='https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/';
-const SRC={videos:BASE+'videos.json',locales:BASE+'locales/',tn:BASE+'tn/'}, LOCALE='en-GB.json';
+const SRC={videos:BASE+'videos.json',locales:BASE+'locales/'}, LOCALE='en-GB.json';
+// thumbnails: the branch first; the new-videos-json branch has no tn/ folder yet, so main is the fallback
+const TN_BASES=[BASE+'tn/',BASE.replace('refs/heads/new-videos-json','refs/heads/main')+'tn/']; let TN='';
 const TAGS=['day','sunrise','sunset','night'], ORDER=['url-1080-H264','url-1080-SDR','url-4K-SDR','url-4K-SDR-240FPS','url-1080-HDR','url-4K-HDR'];
 let RAW='',DATA=[],byId={},cards={},ed={};
 try{ed=JSON.parse(localStorage.getItem('tod_edits')||'{}')}catch(e){}
@@ -46,15 +50,19 @@ async function init(text){
   try{
     RAW=text||await get(SRC.videos,true);
     let S={};try{S=(await get(SRC.locales+LOCALE)).strings||{}}catch(e){console.warn('locale not loaded',e)}
-    load(JSON.parse(RAW),S);
+    const V=JSON.parse(RAW);await pickTn(V);load(V,S);
   }catch(e){st.className='err';st.textContent='Could not load data: '+e.message+'. Use "Open local file…" to pick videos.json from disk.'}
+}
+async function pickTn(V){   // the first base where the first thumbnail exists is used for all
+  const a=V.assets.find(x=>x.previewImage);TN='';if(!a)return;
+  for(const b of TN_BASES){const ok=await new Promise(r=>{const i=new Image();i.onload=()=>r(true);i.onerror=()=>r(false);setTimeout(()=>r(false),4000);i.src=b+a.previewImage.split('/').pop()});if(ok){TN=b;return}}
 }
 function load(V,S){
   DATA=V.assets.map(a=>({id:a.id,s:a.source||'',t:a.timeOfDay||'',
     nm:S[a.localizedNameKey]||a.localizedNameKey||a.id,
     p:Object.keys(a.pointsOfInterest||{}).sort((x,y)=>x-y).map(k=>S[a.pointsOfInterest[k]]).filter(Boolean),
     c:strip((a.categories||[])[0]||''),sc:strip((a.subcategories||[])[0]||''),
-    img:a.previewImage?SRC.tn+a.previewImage.split('/').pop():'',
+    img:a.previewImage&&TN?TN+a.previewImage.split('/').pop():'',
     u:ORDER.filter(k=>a[k]).map(k=>[k.slice(4),a[k]])}));
   byId={};DATA.forEach(d=>byId[d.id]=d);
   Object.keys(ed).forEach(k=>{if(!byId[k]||ed[k]===byId[k].t)delete ed[k]});
@@ -77,7 +85,7 @@ function build(d){const c=el('div','card'),v=el('div','v'),go=el('button','go','
   const t=el('div','t');TAGS.forEach(k=>{const x=el('button','',k);x.dataset.t=k;x.onclick=()=>pick(d,k);t.append(x)});
   b.append(el('div','nm',d.nm),poi,id,m,vr,t);c.append(v,b);mark(c,d);return c}
 function pick(d,k){if(k===cur(d)||k===d.t)delete ed[d.id];else ed[d.id]=k;save();mark(cards[d.id],d);stats();filter()}
-function mark(c,d){const x=cur(d),ch=ed[d.id]!==undefined;c.classList.toggle('ch',ch);
+function mark(c,d){const x=cur(d),ch=ed[d.id]!==undefined;c.classList.toggle('ch',ch);c.classList.toggle('nt',!x);
   c.querySelectorAll('.t button').forEach(b=>b.classList.toggle('on',b.dataset.t===x));
   c.querySelector('.was').textContent=ch?'was: '+(d.t||'none'):''}
 function stats(){const n={};DATA.forEach(d=>{const x=cur(d)||'none';n[x]=(n[x]||0)+1});
