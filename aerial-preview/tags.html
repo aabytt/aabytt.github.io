@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>timeOfDay editor</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{color-scheme:dark;--bg:#0b0b0d;--card:#16161a;--line:#2c2c30;--mut:#8e8e93}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#eee;font:15px/1.4 system-ui,Segoe UI,sans-serif}
+header{position:sticky;top:0;z-index:5;background:rgba(11,11,13,.96);border-bottom:1px solid var(--line);padding:10px 20px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.row+.row{margin-top:8px}
+h1{font-size:18px;margin:0 8px 0 0}#sum,#shown{color:var(--mut);font-size:13px}
+select,button,input{background:#222228;color:#eee;border:1px solid var(--line);border-radius:8px;padding:7px 12px;font:inherit}
+button{cursor:pointer}button:hover{border-color:#666}button:disabled{opacity:.4;cursor:default}input{min-width:260px}.sp{flex:1}
+#chg{color:#ffb86b;font-weight:600}#st{padding:40px 20px;color:var(--mut);text-align:center}#st.err{color:#ffb4a8}
+main{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;padding:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}.card.ch{border-color:#ffb86b}
+.v{position:relative;aspect-ratio:16/9;background:#000 center/cover no-repeat}.v video{width:100%;height:100%;display:block;background:#000}
+.v .go{position:absolute;inset:0;width:100%;border:0;border-radius:0;background:rgba(0,0,0,.35);font-size:16px}.v .go:hover{background:rgba(0,0,0,.15)}
+.v .err{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;background:rgba(0,0,0,.8);color:#ffb4a8;font-size:13px}
+.b{padding:12px 14px}.nm{font-size:17px;font-weight:600;margin:0 0 4px}.poi{color:#c9c9ce;font-size:14px;margin:0 0 8px}.poi span{display:block}
+.id{font:12px ui-monospace,Consolas,monospace;color:#ccc;word-break:break-all;cursor:pointer}.id:hover{color:#fff}
+.m{color:var(--mut);font-size:13px;margin:4px 0 8px}.was{color:#ffb86b;font-size:12px;margin-left:6px}
+.vr{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.vr button,.vr a{font-size:12px;padding:3px 9px;border-radius:99px;color:#ccc;text-decoration:none;border:1px solid var(--line);background:#1d1d22}.vr button.on{border-color:#fff;color:#fff}
+.t{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.t button{padding:8px 0;font-weight:600}.t button.on{color:#fff;border-color:transparent}
+.t [data-t=day].on{background:#c79a1a}.t [data-t=sunrise].on{background:#e07b3a}.t [data-t=sunset].on{background:#c2453a}.t [data-t=night].on{background:#4a56d6}
+</style></head><body>
+<header><div class="row"><h1>timeOfDay editor</h1><span id="sum"></span><span class="sp"></span><span id="chg"></span>
+<button id="dlv" disabled>Download videos.json</button><button id="dlc" disabled>Download changes</button><button id="rst" disabled>Reset edits</button>
+<button id="imp" disabled>Import tags…</button><button id="open">Open local file…</button><input id="file" type="file" accept=".json" hidden><input id="tfile" type="file" accept=".json" hidden></div>
+<div class="row"><input id="q" placeholder="Search: name, id, description"><select id="ft"><option value="">Any tag</option><option>day</option><option>sunrise</option><option>sunset</option><option>night</option><option value="@none">No tag</option><option value="@ch">Changed</option></select>
+<select id="fs"><option value="">All sources</option></select><select id="fc"><option value="">All categories</option></select><span id="shown"></span></div></header>
+<div id="st">Loading videos.json…</div><main id="g"></main>
+<script>
+const BASE='https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/';
+const SRC={videos:BASE+'videos.json',locales:BASE+'locales/',tn:BASE+'tn/'}, LOCALE='en-GB.json';
+const TAGS=['day','sunrise','sunset','night'], ORDER=['url-1080-H264','url-1080-SDR','url-4K-SDR','url-4K-SDR-240FPS','url-1080-HDR','url-4K-HDR'];
+let RAW='',DATA=[],byId={},cards={},ed={};
+try{ed=JSON.parse(localStorage.getItem('tod_edits')||'{}')}catch(e){}
+const $=s=>document.querySelector(s), g=$('#g'), st=$('#st');
+const cur=d=>ed[d.id]!==undefined?ed[d.id]:d.t;
+const save=()=>{try{localStorage.setItem('tod_edits',JSON.stringify(ed))}catch(e){}};
+function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+const strip=a=>a.replace('AerialCategory','').replace('AerialSubcategory','');
+async function get(url,text){const r=await fetch(url);if(!r.ok)throw new Error(url+' → HTTP '+r.status);return text?r.text():r.json()}
+
+async function init(text){
+  st.className='';st.textContent='Loading…';st.style.display='';
+  try{
+    RAW=text||await get(SRC.videos,true);
+    let S={};try{S=(await get(SRC.locales+LOCALE)).strings||{}}catch(e){console.warn('locale not loaded',e)}
+    load(JSON.parse(RAW),S);
+  }catch(e){st.className='err';st.textContent='Could not load data: '+e.message+'. Use "Open local file…" to pick videos.json from disk.'}
+}
+function load(V,S){
+  DATA=V.assets.map(a=>({id:a.id,s:a.source||'',t:a.timeOfDay||'',
+    nm:S[a.localizedNameKey]||a.localizedNameKey||a.id,
+    p:Object.keys(a.pointsOfInterest||{}).sort((x,y)=>x-y).map(k=>S[a.pointsOfInterest[k]]).filter(Boolean),
+    c:strip((a.categories||[])[0]||''),sc:strip((a.subcategories||[])[0]||''),
+    img:a.previewImage?SRC.tn+a.previewImage.split('/').pop():'',
+    u:ORDER.filter(k=>a[k]).map(k=>[k.slice(4),a[k]])}));
+  byId={};DATA.forEach(d=>byId[d.id]=d);
+  Object.keys(ed).forEach(k=>{if(!byId[k]||ed[k]===byId[k].t)delete ed[k]});
+  g.innerHTML='';cards={};
+  [['#fs',DATA.map(d=>d.s)],['#fc',DATA.map(d=>d.c)]].forEach(([s,v])=>{const e=$(s);e.length=1;[...new Set(v)].filter(Boolean).sort().forEach(x=>e.append(Object.assign(el('option','',x),{value:x})))});
+  DATA.forEach(d=>g.append(cards[d.id]=build(d)));
+  st.style.display='none';['dlv','dlc','rst','imp'].forEach(i=>$('#'+i).disabled=false);stats();filter();
+}
+function play(c,d,i){const v=c.querySelector('.v');v.innerHTML='';const x=document.createElement('video');
+  x.controls=x.loop=x.muted=x.autoplay=true;x.src=d.u[i][1];
+  x.onerror=()=>v.append(el('div','err','Cannot play in this browser (maybe HEVC). Try another quality or open the link.'));
+  v.append(x);c.querySelectorAll('.vr button').forEach((b,j)=>b.classList.toggle('on',j===i))}
+function build(d){const c=el('div','card'),v=el('div','v'),go=el('button','go','▶ Load video');
+  if(d.img)v.style.backgroundImage='url("'+d.img+'")';go.onclick=()=>play(c,d,0);v.append(go);
+  const b=el('div','b'),id=el('div','id',d.id);id.title='Copy id';id.onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(d.id);
+  const poi=el('div','poi');d.p.forEach(x=>poi.append(el('span','',x)));
+  const m=el('div','m',d.s+' · '+d.c+(d.sc?' / '+d.sc:''));m.append(el('span','was'));
+  const vr=el('div','vr');d.u.forEach((u,i)=>{const x=el('button','',u[0]);x.onclick=()=>play(c,d,i);vr.append(x)});
+  if(d.u.length)vr.append(Object.assign(el('a','','↗ link'),{href:d.u[0][1],target:'_blank',rel:'noopener'}));
+  const t=el('div','t');TAGS.forEach(k=>{const x=el('button','',k);x.dataset.t=k;x.onclick=()=>pick(d,k);t.append(x)});
+  b.append(el('div','nm',d.nm),poi,id,m,vr,t);c.append(v,b);mark(c,d);return c}
+function pick(d,k){if(k===cur(d)||k===d.t)delete ed[d.id];else ed[d.id]=k;save();mark(cards[d.id],d);stats();filter()}
+function mark(c,d){const x=cur(d),ch=ed[d.id]!==undefined;c.classList.toggle('ch',ch);
+  c.querySelectorAll('.t button').forEach(b=>b.classList.toggle('on',b.dataset.t===x));
+  c.querySelector('.was').textContent=ch?'was: '+(d.t||'none'):''}
+function stats(){const n={};DATA.forEach(d=>{const x=cur(d)||'none';n[x]=(n[x]||0)+1});
+  $('#sum').textContent=DATA.length+' videos · '+TAGS.concat('none').filter(k=>n[k]).map(k=>k+' '+n[k]).join(' · ');
+  const k=Object.keys(ed).length;$('#chg').textContent=k?'Changed: '+k:''}
+function filter(){const q=$('#q').value.trim().toLowerCase(),ft=$('#ft').value,fs=$('#fs').value,fc=$('#fc').value;let n=0;
+  DATA.forEach(d=>{const ok=(!ft||(ft==='@ch'?ed[d.id]!==undefined:ft==='@none'?!cur(d):cur(d)===ft))&&(!fs||d.s===fs)&&(!fc||d.c===fc)&&
+    (!q||(d.nm+' '+d.id+' '+d.p.join(' ')).toLowerCase().includes(q));cards[d.id].style.display=ok?'':'none';if(ok)n++});
+  $('#shown').textContent='Shown: '+n}
+
+// The file is edited as TEXT, line by line, so its formatting stays exactly as it was: only the "timeOfDay" lines change.
+// Any indentation works: an asset runs from its "id" line to the first "}" line that is indented less than its keys.
+function patched(){
+  const L=RAW.split('\n'),out=[];let i=0,n=0;
+  while(i<L.length){
+    const m=/^(\s+)"id": "([^"]+)",?\s*$/.exec(L[i]),t=m&&ed[m[2]];
+    if(!t){out.push(L[i++]);continue}
+    let end=i+1;for(;end<L.length;end++){const c=/^(\s*)\},?\s*$/.exec(L[end]);if(c&&c[1].length<m[1].length)break}
+    const block=L.slice(i,end),k=block.findIndex(x=>/^\s*"timeOfDay":/.test(x)),line=m[1]+'"timeOfDay": "'+t+'",';
+    if(k>=0)block[k]=block[k].replace(/"timeOfDay":\s*"[^"]*"/,'"timeOfDay": "'+t+'"');else block.splice(1,0,line);
+    out.push(...block);i=end;n++;
+  }
+  const text=out.join('\n'),chk=JSON.parse(text);   // must stay valid JSON
+  if(n!==Object.keys(ed).length||chk.assets.length!==DATA.length)throw new Error('Patched '+n+' of '+Object.keys(ed).length+' edits');
+  chk.assets.forEach(a=>{if(ed[a.id]&&a.timeOfDay!==ed[a.id])throw new Error('Check failed for '+a.id)});
+  return text;
+}
+function dl(name,txt){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download=name;a.click()}
+$('#dlv').onclick=()=>{try{dl('videos.json',patched())}catch(e){alert(e.message)}};
+$('#dlc').onclick=()=>dl('tags.json',JSON.stringify(ed,null,2));
+$('#rst').onclick=()=>{if(Object.keys(ed).length&&confirm('Reset all edits?')){ed={};save();DATA.forEach(d=>mark(cards[d.id],d));stats();filter()}};
+$('#open').onclick=()=>$('#file').click();
+// a {id: tag} file (e.g. tags.json / timeOfDay-all.json): every tag that differs from the loaded videos.json becomes an edit
+$('#imp').onclick=()=>$('#tfile').click();
+$('#tfile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const T=JSON.parse(await f.text());let n=0,same=0,skip=0;
+    Object.entries(T).forEach(([id,t])=>{if(!byId[id]||!TAGS.includes(t))skip++;else if(byId[id].t===t){delete ed[id];same++}else{ed[id]=t;n++}});
+    save();DATA.forEach(d=>mark(cards[d.id],d));stats();filter();
+    alert('Imported '+n+' tags ('+same+' already the same, '+skip+' skipped: unknown id or tag).')}
+  catch(err){alert('Not a valid tags file: '+err.message)}};
+$('#file').onchange=e=>{const f=e.target.files[0];if(f)f.text().then(init)};
+['#q','#ft','#fs','#fc'].forEach(s=>$(s).oninput=filter);
+init();
+</script></body></html>
