@@ -90,7 +90,13 @@ function fetchWithHttpFallback(url, options) {
 
 /** Assign a fresh video URL and reset the per-element fallback flag. */
 function _setVideoSrc(el, url) {
+  clearTimeout(el._httpWatch);
   el._fellBack = false;
+  // Once http:// has been confirmed to work, go straight to it (no wasted https attempt)
+  if (state.httpOnly) {
+    var direct = _toHttpUrl(url);
+    if (direct) { url = direct; el._fellBack = true; }
+  }
   el.src = url;
 }
 
@@ -103,15 +109,39 @@ function _tryHttpFallback(el, playNow) {
   var alt = _toHttpUrl(el.getAttribute('src'));
   if (!alt) return false;
   el._fellBack = true;
-  DebugManager.log('Video HTTPS failed — trying HTTP: ' + alt);
+
+  var code     = el.error ? ' (error code ' + el.error.code + ')' : '';
+  var resumeAt = el.currentTime || 0;
+  DebugManager.log('Video HTTPS failed' + code + ' — trying HTTP: ' + alt);
   if (dom.dbgUrl) dom.dbgUrl.textContent = alt;
+
   el.src = alt;
   el.load();
+
+  // Continue from where the https stream died instead of restarting
+  if (resumeAt > 1) {
+    var onMeta = function() {
+      el.removeEventListener('loadedmetadata', onMeta);
+      try { el.currentTime = resumeAt; } catch (e) { /* ignore */ }
+    };
+    el.addEventListener('loadedmetadata', onMeta);
+  }
+
   if (playNow) {
     el.play().catch(function(e) {
       DebugManager.log('Autoplay blocked: ' + e.message);
     });
   }
+
+  // Watchdog: if http:// has not produced playable data in 10 s, give up on
+  // this video (handled like any other load error → next video).
+  clearTimeout(el._httpWatch);
+  el._httpWatch = setTimeout(function() {
+    if (el.readyState >= 3) return;   // HAVE_FUTURE_DATA or better → fine
+    DebugManager.log('HTTP fallback timed out (readyState ' + el.readyState +
+                     ', networkState ' + el.networkState + ') — giving up');
+    el.dispatchEvent(new Event('error'));
+  }, 10000);
   return true;
 }
 
@@ -148,6 +178,7 @@ var state = {
     showHint:        true,
   },
   poiLastKey:      null,
+  httpOnly:        false,   // set once an http:// fallback is confirmed to play
   settingsOpen:    false,
   transitioning:   false,
   pressTimer:      null,
@@ -593,6 +624,11 @@ var PlayerManager = {
       });
 
       video.addEventListener('playing', function() {
+        clearTimeout(video._httpWatch);
+        if (video._fellBack && !state.httpOnly) {
+          state.httpOnly = true;   // http:// confirmed working — use it for following videos
+          DebugManager.log('HTTP fallback works — using http:// from now on');
+        }
         if (video !== state.activeVideoEl) return;
         if (state.prefs.debugEnabled) DebugManager.log('playing');
       });
@@ -602,7 +638,7 @@ var PlayerManager = {
         if (video !== state.activeVideoEl) return;
         // During a transition the incoming video's error is handled in loadAndCrossfadeNext
         if (!state.transitioning && _tryHttpFallback(video, true)) return;
-        var msg = video.error ? video.error.message : 'unknown';
+        var msg = video.error ? ('code ' + video.error.code + ' ' + video.error.message) : 'unknown';
         DebugManager.log('Video error: ' + msg);
         setTimeout(function() { PlayerManager.skip(); }, 500);
       });
@@ -616,6 +652,7 @@ var PlayerManager = {
  * any pending network requests, even on Chromium 87.
  */
 function _releaseVideo(el) {
+  clearTimeout(el._httpWatch);
   el.pause();
   el.removeAttribute('src');
   el.load();  // cancels network activity and resets media element state
