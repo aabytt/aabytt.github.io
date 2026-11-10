@@ -36,6 +36,9 @@ var CONFIG = {
   localesPath:    'https://raw.githubusercontent.com/aabytt/custom-screensaver-aerial/refs/heads/new-videos-json/assets/locales/',
   defaultLocale:  'en-US',
   defaultQuality: 'url-1080-SDR',
+  // If an https:// request fails (bad/expired certificate, old root CA store, etc.)
+  // retry the same URL over http://. Set to false to disable.
+  httpFallback:   true,
   // Quality fallback order (from best to most compatible)
   qualityFallback: [
     'url-4K-HDR',
@@ -63,6 +66,54 @@ var CONFIG = {
   blackoutHoldMs:    400,   // how long to hold pure black before fading in
   blackoutFadeInMs:  2400,  // how long the fade-from-black takes
 };
+
+/* ═══════════════════════════════════════════
+   HTTP FALLBACK HELPERS
+   If https:// fails (invalid certificate etc.), retry once over http://.
+═══════════════════════════════════════════ */
+
+function _toHttpUrl(url) {
+  if (!CONFIG.httpFallback) return null;
+  if (typeof url !== 'string') return null;
+  return /^https:\/\//i.test(url) ? 'http://' + url.slice(8) : null;
+}
+
+/** fetch() that retries over http:// when the https:// request fails. */
+function fetchWithHttpFallback(url, options) {
+  return fetch(url, options).catch(function(err) {
+    var alt = _toHttpUrl(url);
+    if (!alt) throw err;
+    DebugManager.log('HTTPS failed (' + err.message + ') — trying HTTP: ' + alt);
+    return fetch(alt, options);
+  });
+}
+
+/** Assign a fresh video URL and reset the per-element fallback flag. */
+function _setVideoSrc(el, url) {
+  el._fellBack = false;
+  el.src = url;
+}
+
+/**
+ * Switch a <video> from https:// to http:// once. Returns true if a retry
+ * was started (caller should then NOT treat the error as fatal).
+ */
+function _tryHttpFallback(el, playNow) {
+  if (el._fellBack) return false;
+  var alt = _toHttpUrl(el.getAttribute('src'));
+  if (!alt) return false;
+  el._fellBack = true;
+  DebugManager.log('Video HTTPS failed — trying HTTP: ' + alt);
+  if (dom.dbgUrl) dom.dbgUrl.textContent = alt;
+  el.src = alt;
+  el.load();
+  if (playNow) {
+    el.play().catch(function(e) {
+      DebugManager.log('Autoplay blocked: ' + e.message);
+    });
+  }
+  return true;
+}
 
 /* ═══════════════════════════════════════════
    STATE
@@ -161,7 +212,7 @@ var LocaleManager = {
   load: function(localeCode) {
     var self = this;
     if (self.cache[localeCode]) return Promise.resolve(self.cache[localeCode]);
-    return fetch(CONFIG.localesPath + localeCode + '.json')
+    return fetchWithHttpFallback(CONFIG.localesPath + localeCode + '.json')
       .then(function(res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
@@ -249,7 +300,7 @@ var LocaleManager = {
 
 var VideoManager = {
   init: function() {
-    return fetch(CONFIG.videosJsonPath)
+    return fetchWithHttpFallback(CONFIG.videosJsonPath)
       .then(function(res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
@@ -385,7 +436,7 @@ var PlayerManager = {
     videoEl.muted       = true;
     videoEl.preload     = 'auto';
     videoEl.currentTime = 0;
-    videoEl.src         = resolved.url;
+    _setVideoSrc(videoEl, resolved.url);
     videoEl.load();
 
     DebugManager.updateCurrent(asset, resolved.url, resolved.quality);
@@ -431,7 +482,7 @@ var PlayerManager = {
 
       incoming.muted       = true;
       incoming.preload     = 'auto';
-      incoming.src         = resolved.url;
+      _setVideoSrc(incoming, resolved.url);
       incoming.load();
       incoming.currentTime = 0;
 
@@ -466,6 +517,8 @@ var PlayerManager = {
       }
 
       function onError() {
+        // https failed (e.g. invalid certificate) → retry same video over http once
+        if (_tryHttpFallback(incoming, false)) return;
         incoming.removeEventListener('canplay', onCanPlay);
         incoming.removeEventListener('error',   onError);
         DebugManager.log('Next video load error — picking another');
@@ -547,6 +600,8 @@ var PlayerManager = {
       // Error on active element → skip
       video.addEventListener('error', function() {
         if (video !== state.activeVideoEl) return;
+        // During a transition the incoming video's error is handled in loadAndCrossfadeNext
+        if (!state.transitioning && _tryHttpFallback(video, true)) return;
         var msg = video.error ? video.error.message : 'unknown';
         DebugManager.log('Video error: ' + msg);
         setTimeout(function() { PlayerManager.skip(); }, 500);
