@@ -377,6 +377,21 @@ body{
     font-size:.75rem;
 }
 
+.duration-badge{
+    position:absolute;
+    bottom:12px;
+    right:10px;
+    z-index:1;
+    background:rgba(0,0,0,.8);
+    padding:4px 10px;
+    border-radius:20px;
+    font-size:.75rem;
+    letter-spacing:.03em;
+    font-variant-numeric:tabular-nums;
+}
+/* keep long titles from running under the duration badge */
+.bottom-overlay.has-duration h3{padding-right:3.8rem;}
+
 .bottom-overlay{
     position:absolute;
     inset:0;
@@ -985,7 +1000,8 @@ function render(){
             <img src="${v.previewImage||''}" class="video-preview" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'no-preview',innerHTML:'<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.2\\'><rect x=\\'3\\' y=\\'3\\' width=\\'18\\' height=\\'18\\' rx=\\'2\\'/><circle cx=\\'8.5\\' cy=\\'8.5\\' r=\\'1.5\\'/><polyline points=\\'21 15 16 10 5 21\\'/></svg><span>No preview</span>'}))">
             <button class="favorite-btn${favorites.includes(v.id)?' is-fav':''}">${favorites.includes(v.id)?'♥':'♡'}</button>
             ${poiCount>0?`<div class="poi-badge">${poiCount} POI</div>`:''}
-            <div class="bottom-overlay"><h3>${name(v)}</h3></div>
+            ${v.duration?`<div class="duration-badge">${fmtTime(v.duration)}</div>`:''}
+            <div class="bottom-overlay${v.duration?' has-duration':''}"><h3>${name(v)}</h3></div>
         </div>
     </div>`;
     }).join('');
