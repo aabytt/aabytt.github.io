@@ -1447,6 +1447,17 @@
             he: 'הופך את ממשק כрטיס הסרט לדומה ל-Apple TV ומבצע אופטימיזציה ל-4K',
             pt: 'Torna a interface do cartão do filme semelhante à Apple TV e otimiza para 4K',
             zh: '使电影卡片界面看起来像 Apple TV 并针对 4K 进行优化'
+        },
+        director: {
+            ru: 'Режиссёр',
+            en: 'Director',
+            uk: 'Режисер',
+            be: 'Рэжысёр',
+            bg: 'Режисьор',
+            cs: 'Režisér',
+            he: 'במאי',
+            pt: 'Diretor',
+            zh: '导演'
         }
     };
 
@@ -3762,9 +3773,7 @@ body.applecation--no-liquid-glass .applecation .full-person.focus .full-person__
         }
         directors = directors.filter(function(n, i) { return n && directors.indexOf(n) === i; }).slice(0, 2);
         if (directors.length) {
-            const key = 'full_director';
-            const tr = Lampa.Lang.translate(key);
-            badges.push({ label: tr && tr !== key ? tr : 'Director', text: directors.join(', ') });
+            badges.push({ label: t('director'), text: directors.join(', ') });
         }
 
         return badges;
@@ -3846,6 +3855,19 @@ body.applecation--no-liquid-glass .applecation .full-person.focus .full-person__
                 toggle: function() {
                     Lampa.Controller.collectionSet(overlay);
                     Lampa.Controller.collectionFocus(overlay.find('.applecation-description-overlay__content'), overlay);
+                },
+                // Любая стрелка D-pad закрывает модалку
+                up: function() {
+                    closeDescriptionOverlay();
+                },
+                down: function() {
+                    closeDescriptionOverlay();
+                },
+                left: function() {
+                    closeDescriptionOverlay();
+                },
+                right: function() {
+                    closeDescriptionOverlay();
                 },
                 back: function() {
                     closeDescriptionOverlay();
