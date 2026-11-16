@@ -2753,6 +2753,65 @@ body.applecation--ratings-corner .applecation__ratings {
     transform: translateY(0);
 }
 
+/* Кнопки действий: справа, без текста, тёмные с кантом (OLED-friendly) */
+.applecation .full-start-new__right {
+    position: relative;
+}
+
+.applecation .full-start-new__buttons {
+    position: absolute;
+    right: 1.5em;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    z-index: 2;
+}
+
+.applecation .full-start-new__buttons .full-start__button:not(.hide) {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 3.6em;
+    height: 3.6em;
+    padding: 0 !important;
+    margin: 0 0 0.8em 0 !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 50% !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: blur(1em);
+    backdrop-filter: blur(1em);
+    transition: transform 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.applecation .full-start-new__buttons .full-start__button:last-child {
+    margin-bottom: 0 !important;
+}
+
+.applecation .full-start-new__buttons .full-start__button span {
+    display: none !important;
+}
+
+.applecation .full-start-new__buttons .full-start__button svg {
+    width: 1.5em !important;
+    height: 1.5em !important;
+    margin: 0 !important;
+}
+
+/* Фокус: без белой заливки, только кант, лёгкий зум и мягкое свечение */
+.applecation .full-start-new__buttons .full-start__button.focus {
+    color: #fff !important;
+    background: rgba(0, 0, 0, 0.85) !important;
+    border-color: rgba(255, 255, 255, 0.75);
+    box-shadow: 0 0 1.2em rgba(255, 255, 255, 0.12) !important;
+    transform: scale(1.1);
+}
+
 /* Левая и правая части */
 .applecation__left {
     flex-grow: 1;
