@@ -2764,7 +2764,7 @@ body.applecation--ratings-corner .applecation__ratings {
     top: 50%;
     transform: translateY(-50%);
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     margin: 0;
     z-index: 2;
@@ -2775,10 +2775,10 @@ body.applecation--ratings-corner .applecation__ratings {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    width: 3.6em;
-    height: 3.6em;
+    width: 1.8em;
+    height: 1.8em;
     padding: 0 !important;
-    margin: 0 0 0.8em 0 !important;
+    margin: 0 0 0 0.6em !important;
     color: rgba(255, 255, 255, 0.85) !important;
     background: rgba(0, 0, 0, 0.6) !important;
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -2789,8 +2789,8 @@ body.applecation--ratings-corner .applecation__ratings {
     transition: transform 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
 }
 
-.applecation .full-start-new__buttons .full-start__button:last-child {
-    margin-bottom: 0 !important;
+.applecation .full-start-new__buttons .full-start__button:first-child {
+    margin-left: 0 !important;
 }
 
 .applecation .full-start-new__buttons .full-start__button span {
@@ -2798,8 +2798,8 @@ body.applecation--ratings-corner .applecation__ratings {
 }
 
 .applecation .full-start-new__buttons .full-start__button svg {
-    width: 1.5em !important;
-    height: 1.5em !important;
+    width: 1em !important;
+    height: 1em !important;
     margin: 0 !important;
 }
 
@@ -4642,6 +4642,58 @@ body.applecation--no-liquid-glass .applecation .full-person.focus .full-person__
         }, 100);
     }
 
+    // Навигация описание <-> кнопки (кнопки справа, геометрия Lampa их не связывает)
+    function attachDescriptionNav(activity) {
+        const KEY = { left: 37, up: 38, right: 39, down: 40 };
+
+        function focusEl(el, render) {
+            try {
+                Lampa.Controller.collectionFocus(el[0], render);
+            } catch (e) {
+                render.find('.focus').removeClass('focus');
+                el.addClass('focus');
+            }
+        }
+
+        function handler(e) {
+            if (!isAlive(activity)) {
+                window.removeEventListener('keydown', handler, true);
+                return;
+            }
+            if ($('.applecation-description-overlay.show').length) return;
+
+            const render = activity.render();
+            if (!render.is(':visible')) return;
+
+            const desc = render.find('.applecation__description-wrapper.selector');
+            if (!desc.length) return;
+
+            const btns = render.find('.full-start-new__buttons .selector:not(.hide)');
+            if (!btns.length) return;
+
+            const code = e.keyCode;
+            const onBtn = btns.filter('.focus');
+            const onDesc = desc.hasClass('focus');
+
+            // Кнопки: вверх, либо влево с первой кнопки -> описание
+            if (onBtn.length && (code === KEY.up || (code === KEY.left && onBtn[0] === btns[0]))) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                focusEl(desc, render);
+                return;
+            }
+
+            // Описание: вправо -> первая кнопка
+            if (onDesc && code === KEY.right) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                focusEl($(btns[0]), render);
+            }
+        }
+
+        window.addEventListener('keydown', handler, true);
+    }
+
     // Подключаем загрузку логотипов
     function attachLogoLoader() {
         Lampa.Listener.follow('full', (event) => {
@@ -4683,6 +4735,7 @@ body.applecation--no-liquid-glass .applecation .full-person.focus .full-person__
                 render.toggleClass('applecation--poster-high', posterSize === 'w500');
 
                 addOverlay(activity);
+                attachDescriptionNav(activity);
                 loadLogo(event);
                 
                 // Загружаем рейтинги
