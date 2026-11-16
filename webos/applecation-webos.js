@@ -2679,6 +2679,10 @@ body.applecation--ratings-corner .applecation__ratings {
     transform: translateY(0);
 }
 
+.applecation__description-wrapper.selector {
+    cursor: pointer;
+}
+
 .applecation__description-wrapper.focus {
   transform: translateY(0);
   transition-delay: 0s;
@@ -3685,9 +3689,25 @@ body.applecation--no-liquid-glass .applecation .full-person.focus .full-person__
             descWrapper.off('hover:enter').on('hover:enter', function() {
                 showFullDescription();
             });
+            
+            // Мышь: фокус при наведении и открытие по клику
+            descWrapper.off('.applecationdesc')
+                .on('mouseenter.applecationdesc', function() {
+                    if ($('.applecation-description-overlay.show').length) return;
+                    if (descWrapper.hasClass('focus')) return;
+                    try {
+                        Lampa.Controller.collectionFocus(descWrapper[0], activity.render());
+                    } catch (e) {
+                        descWrapper.addClass('focus');
+                    }
+                })
+                .on('click.applecationdesc', function(e) {
+                    e.stopPropagation();
+                    showFullDescription();
+                });
         } else {
             // Если оверлей отключен, убираем обработчики и удаляем оверлей
-            descWrapper.off('hover:enter');
+            descWrapper.off('hover:enter').off('.applecationdesc');
             $('.applecation-description-overlay').remove();
         }
     }
@@ -3815,7 +3835,7 @@ body.applecation--no-liquid-glass .applecation .full-person.focus .full-person__
     function showFullDescription() {
         const overlay = $('.applecation-description-overlay');
         
-        if (!overlay.length) return;
+        if (!overlay.length || overlay.hasClass('show')) return;
         
         // Анимация появления
         setTimeout(() => overlay.addClass('show'), 10);
